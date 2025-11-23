@@ -246,17 +246,31 @@ const FeedReader = () => {
 
   // Handle toggling favorite for the selected article.
   const handleToggleFavoriteArticle = async () => {
-    if (selectedArticle) {
-      await toggleFavorite(selectedArticle.id, selectedArticle);
+    if (!selectedArticle || !favoriteLabelId) return;
 
-      // Update the selected article state with fresh data from the store.
-      const updatedItem = feedItems?.find(
-        (item) => item.id === selectedArticle.id
-      );
-      if (updatedItem) {
-        setSelectedArticle(updatedItem);
-      }
+    const currentLabels = selectedArticle.feeds_label || [];
+    let newLabels;
+
+    if (currentLabels.includes(favoriteLabelId)) {
+      // Remove favorite label.
+      newLabels = currentLabels.filter((id) => id !== favoriteLabelId);
+    } else {
+      // Add favorite label.
+      newLabels = [...currentLabels, favoriteLabelId];
     }
+
+    // Optimistically update the selected article state immediately.
+    setSelectedArticle({
+      ...selectedArticle,
+      feeds_label: newLabels,
+    });
+
+    // Then persist to the server.
+    editEntityRecord("postType", "feeds_item", selectedArticle.id, {
+      feeds_label: newLabels,
+    });
+
+    await saveEditedEntityRecord("postType", "feeds_item", selectedArticle.id);
   };
 
   // Define actions.
