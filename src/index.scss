@@ -37,44 +37,6 @@ body.toplevel_page_feeds{
 	margin-top: 20px;
 }
 
-.feeds-reader-container {
-	display: flex;
-	gap: 20px;
-}
-
-.feeds-sidebar {
-	width: 250px;
-	flex-shrink: 0;
-}
-
-.feeds-main-content {
-	flex: 1;
-	min-width: 0;
-}
-
-.feeds-category-list {
-	list-style: none;
-	padding: 0;
-	margin: 0;
-}
-
-.feeds-category-item {
-	padding: 8px 12px;
-	margin-bottom: 4px;
-	cursor: pointer;
-	border-radius: 4px;
-	transition: background-color 0.2s;
-}
-
-.feeds-category-item:hover {
-	background-color: #f0f0f0;
-}
-
-.feeds-category-item.active {
-	background-color: #2271b1;
-	color: white;
-}
-
 .feeds-article-drawer {
 	position: fixed;
 	top: 0;

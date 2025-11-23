@@ -2,39 +2,54 @@
  * Main App Component
  * Handles routing between FeedReader and FeedManager views
  */
-import { useState } from '@wordpress/element';
-import { Button, Panel, PanelBody, PanelRow } from '@wordpress/components';
+import { TabPanel } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import FeedReader from './views/FeedReader';
 import FeedManager from './views/FeedManager';
 
+const TABS = {
+	READER: 'reader',
+	MANAGER: 'manager',
+};
+
 const App = () => {
-	const [ currentView, setCurrentView ] = useState( 'reader' );
+	const tabs = [
+		{
+			name: TABS.READER,
+			title: __( 'Reader', 'feeds' ),
+			className: 'feeds-tab',
+		},
+		{
+			name: TABS.MANAGER,
+			title: __( 'Manage Feeds', 'feeds' ),
+			className: 'feeds-tab',
+		},
+	];
+
+	const renderTabContent = ( tabName ) => {
+		switch ( tabName ) {
+			case TABS.READER:
+				return <FeedReader />;
+			case TABS.MANAGER:
+				return <FeedManager />;
+			default:
+				return null;
+		}
+	};
 
 	return (
 		<div className="feeds-app-container">
 			<div className="feeds-app-header">
 				<h1>{ __( 'Feeds', 'feeds' ) }</h1>
-				<div className="feeds-app-nav">
-					<Button
-						variant={ currentView === 'reader' ? 'primary' : 'secondary' }
-						onClick={ () => setCurrentView( 'reader' ) }
-					>
-						{ __( 'Reader', 'feeds' ) }
-					</Button>
-					<Button
-						variant={ currentView === 'manager' ? 'primary' : 'secondary' }
-						onClick={ () => setCurrentView( 'manager' ) }
-					>
-						{ __( 'Manage Feeds', 'feeds' ) }
-					</Button>
-				</div>
 			</div>
 
-			<div className="feeds-app-content">
-				{ currentView === 'reader' && <FeedReader /> }
-				{ currentView === 'manager' && <FeedManager /> }
-			</div>
+			<TabPanel tabs={ tabs } initialTabName={ TABS.READER }>
+				{ ( tab ) => (
+					<div className="feeds-app-content">
+						{ renderTabContent( tab.name ) }
+					</div>
+				) }
+			</TabPanel>
 		</div>
 	);
 };

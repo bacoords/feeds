@@ -4,15 +4,15 @@
  */
 import { useState } from "@wordpress/element";
 import { useEntityRecords } from "@wordpress/core-data";
+import { useDispatch } from "@wordpress/data";
+import { store as coreStore } from "@wordpress/core-data";
 import { DataViews } from "@wordpress/dataviews/wp";
 import { __ } from "@wordpress/i18n";
-import { Spinner, Panel, PanelBody } from "@wordpress/components";
+import { Spinner } from "@wordpress/components";
 import { starEmpty } from "@wordpress/icons";
-import apiFetch from "@wordpress/api-fetch";
 import ArticleDrawer from "../components/ArticleDrawer";
 
 const FeedReader = () => {
-  const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [view, setView] = useState({
     type: "table",
@@ -26,6 +26,9 @@ const FeedReader = () => {
     filters: [],
     fields: ["title", "feed", "date", "author"],
   });
+
+  // Get entity editing functions.
+  const { editEntityRecord } = useDispatch(coreStore);
 
   // Fetch feed items.
   const { records: feedItems, isResolving: isLoadingItems } = useEntityRecords(
@@ -41,12 +44,6 @@ const FeedReader = () => {
     }
   );
 
-  // Fetch categories.
-  const { records: categories, isResolving: isLoadingCategories } =
-    useEntityRecords("taxonomy", "feeds_category", {
-      per_page: -1,
-    });
-
   // Fetch feed sources.
   const { records: feedSources, isResolving: isLoadingSources } =
     useEntityRecords("postType", "feeds_source", {
@@ -54,37 +51,21 @@ const FeedReader = () => {
     });
 
   // Mark item as read.
-  const markAsRead = async (itemId, isRead = true) => {
-    try {
-      await apiFetch({
-        path: `/wp/v2/feeds_item/${itemId}`,
-        method: "POST",
-        data: {
-          meta: {
-            _feeds_item_is_read: isRead,
-          },
-        },
-      });
-    } catch (error) {
-      console.error("Error marking as read:", error);
-    }
+  const markAsRead = (itemId, isRead = true) => {
+    editEntityRecord("postType", "feeds_item", itemId, {
+      meta: {
+        _feeds_item_is_read: isRead,
+      },
+    });
   };
 
   // Toggle favorite.
-  const toggleFavorite = async (itemId, isFavorite) => {
-    try {
-      await apiFetch({
-        path: `/wp/v2/feeds_item/${itemId}`,
-        method: "POST",
-        data: {
-          meta: {
-            _feeds_item_is_favorite: !isFavorite,
-          },
-        },
-      });
-    } catch (error) {
-      console.error("Error toggling favorite:", error);
-    }
+  const toggleFavorite = (itemId, isFavorite) => {
+    editEntityRecord("postType", "feeds_item", itemId, {
+      meta: {
+        _feeds_item_is_favorite: !isFavorite,
+      },
+    });
   };
 
   // Helper function to get feed source name.
@@ -128,6 +109,10 @@ const FeedReader = () => {
       type: "text",
       label: __("Feed", "feeds"),
       getValue: (item) => getFeedSourceName(item.meta?._feeds_item_source_id),
+      render: ({ item }) => {
+        const feedName = getFeedSourceName(item.meta?._feeds_item_source_id);
+        return feedName || <span style={{ color: "#999" }}>—</span>;
+      },
       enableSorting: false,
     },
     {
@@ -135,6 +120,10 @@ const FeedReader = () => {
       type: "text",
       label: __("Author", "feeds"),
       getValue: (item) => item.meta?._feeds_item_author || "",
+      render: ({ item }) => {
+        const author = item.meta?._feeds_item_author;
+        return author || <span style={{ color: "#999" }}>—</span>;
+      },
       enableSorting: false,
     },
   ];
@@ -182,56 +171,26 @@ const FeedReader = () => {
     },
   ];
 
-  if (isLoadingItems || isLoadingCategories || isLoadingSources) {
+  if (isLoadingItems || isLoadingSources) {
     return <Spinner />;
   }
 
   return (
     <div className="feeds-reader-container">
-      <div className="feeds-sidebar">
-        <Panel>
-          <PanelBody title={__("Categories", "feeds")} initialOpen={true}>
-            <ul className="feeds-category-list">
-              <li
-                className={`feeds-category-item ${
-                  selectedCategory === null ? "active" : ""
-                }`}
-                onClick={() => setSelectedCategory(null)}
-              >
-                {__("All Items", "feeds")}
-              </li>
-              {categories?.map((category) => (
-                <li
-                  key={category.id}
-                  className={`feeds-category-item ${
-                    selectedCategory === category.id ? "active" : ""
-                  }`}
-                  onClick={() => setSelectedCategory(category.id)}
-                >
-                  {category.name}
-                </li>
-              ))}
-            </ul>
-          </PanelBody>
-        </Panel>
-      </div>
-
-      <div className="feeds-main-content">
-        <DataViews
-          data={feedItems || []}
-          fields={fields}
-          view={view}
-          onChangeView={setView}
-          actions={actions}
-          paginationInfo={{
-            totalItems: feedItems?.length || 0,
-            totalPages: Math.ceil((feedItems?.length || 0) / view.perPage),
-          }}
-          defaultLayouts={{
-            table: {},
-          }}
-        />
-      </div>
+      <DataViews
+        data={feedItems || []}
+        fields={fields}
+        view={view}
+        onChangeView={setView}
+        actions={actions}
+        paginationInfo={{
+          totalItems: feedItems?.length || 0,
+          totalPages: Math.ceil((feedItems?.length || 0) / view.perPage),
+        }}
+        defaultLayouts={{
+          table: {},
+        }}
+      />
 
       {selectedArticle && (
         <ArticleDrawer
