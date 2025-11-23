@@ -123,32 +123,35 @@ class Feeds_Scheduler {
 		$retention_days = apply_filters( 'feeds_retention_days', 30 );
 		$cutoff_date    = strtotime( "-{$retention_days} days" );
 
-		// Query old, non-favorited items.
-		$old_items = get_posts(
-			array(
-				'post_type'      => Feeds_Feed_Item_CPT::POST_TYPE,
-				'posts_per_page' => 100, // Process in batches.
-				'post_status'    => 'publish',
-				'date_query'     => array(
-					array(
-						'before' => date( 'Y-m-d', $cutoff_date ),
-					),
+		// Get the favorite term ID.
+		$favorite_term = get_term_by( 'slug', 'favorite', 'feeds_label' );
+
+		// Query old, non-favorited items using taxonomy query.
+		$query_args = array(
+			'post_type'      => Feeds_Feed_Item_CPT::POST_TYPE,
+			'posts_per_page' => 100, // Process in batches.
+			'post_status'    => 'publish',
+			'date_query'     => array(
+				array(
+					'before' => date( 'Y-m-d', $cutoff_date ),
 				),
-				'meta_query'     => array(
-					'relation' => 'OR',
-					array(
-						'key'     => '_feeds_item_is_favorite',
-						'value'   => '0',
-						'compare' => '=',
-					),
-					array(
-						'key'     => '_feeds_item_is_favorite',
-						'compare' => 'NOT EXISTS',
-					),
-				),
-				'fields'         => 'ids',
-			)
+			),
+			'fields'         => 'ids',
 		);
+
+		// Exclude items with favorite label.
+		if ( $favorite_term ) {
+			$query_args['tax_query'] = array(
+				array(
+					'taxonomy' => 'feeds_label',
+					'field'    => 'term_id',
+					'terms'    => $favorite_term->term_id,
+					'operator' => 'NOT IN',
+				),
+			);
+		}
+
+		$old_items = get_posts( $query_args );
 
 		foreach ( $old_items as $item_id ) {
 			wp_delete_post( $item_id, true );

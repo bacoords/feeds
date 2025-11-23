@@ -164,38 +164,6 @@ class Feeds_Feed_Item_CPT {
 			)
 		);
 
-		// Is Favorite.
-		register_post_meta(
-			self::POST_TYPE,
-			'_feeds_item_is_favorite',
-			array(
-				'type'          => 'boolean',
-				'description'   => __( 'Whether this item is favorited (excluded from auto-pruning)', 'feeds' ),
-				'single'        => true,
-				'show_in_rest'  => true,
-				'default'       => false,
-				'auth_callback' => function() {
-					return current_user_can( 'edit_posts' );
-				},
-			)
-		);
-
-		// Is Read.
-		register_post_meta(
-			self::POST_TYPE,
-			'_feeds_item_is_read',
-			array(
-				'type'          => 'boolean',
-				'description'   => __( 'Whether this item has been read', 'feeds' ),
-				'single'        => true,
-				'show_in_rest'  => true,
-				'default'       => false,
-				'auth_callback' => function() {
-					return current_user_can( 'edit_posts' );
-				},
-			)
-		);
-
 		// Publication Date.
 		register_post_meta(
 			self::POST_TYPE,
