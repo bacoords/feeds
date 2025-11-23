@@ -14,6 +14,19 @@ if ( ! defined( 'ABSPATH' ) ) {
  * Feeds_CLI_Commands class
  */
 class Feeds_CLI_Commands {
+
+
+
+	/**
+	 * Registers commands for managing feeds.
+	 */
+	public static function register_commands() {
+		WP_CLI::add_command( 'feeds refresh-all', array( 'Feeds_CLI_Commands', 'refresh_all' ) );
+		WP_CLI::add_command( 'feeds delete-all-items', array( 'Feeds_CLI_Commands', 'delete_all_items' ) );
+		WP_CLI::add_command( 'feeds fetch-all', array( 'Feeds_CLI_Commands', 'fetch_all' ) );
+		WP_CLI::add_command( 'feeds create-labels', array( 'Feeds_CLI_Commands', 'create_labels' ) );
+	}
+
 	/**
 	 * Deletes all feed items and refetches them from all feeds.
 	 *

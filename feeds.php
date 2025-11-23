@@ -99,7 +99,7 @@ class Feeds_Plugin {
 
 		// Register WP-CLI commands.
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
-			WP_CLI::add_command( 'feeds', 'Feeds_CLI_Commands' );
+			Feeds_CLI_Commands::register_commands();
 		}
 	}
 

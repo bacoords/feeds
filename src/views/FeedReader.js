@@ -166,17 +166,18 @@ const FeedReader = () => {
       label: __("Title", "feeds"),
       getValue: (item) => item.title.rendered,
       render: ({ item, field, config }) => (
-        <Button onclick={() => setSelectedArticle(item)}>
-          {hasLabel(item, "read") ? (
-            <>
-              {item.title.rendered}
-              <span style={{ marginLeft: "8px", color: "#666" }}>✓</span>
-            </>
-          ) : (
-            <strong>{item.title.rendered}</strong>
-          )}
-          {/* {config.sizes === "comfortable" ?? <>{item.excerpt.rendered}</>} */}
-        </Button>
+        <>
+          <Button onclick={() => setSelectedArticle(item)}>
+            {hasLabel(item, "read") ? (
+              <>
+                {item.title.rendered}
+                <span style={{ marginLeft: "8px", color: "#666" }}>✓</span>
+              </>
+            ) : (
+              <strong>{item.title.rendered}</strong>
+            )}
+          </Button>
+        </>
       ),
       enableHiding: false,
       enableSorting: true,

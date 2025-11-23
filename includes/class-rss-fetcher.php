@@ -193,16 +193,85 @@ class Feeds_RSS_Fetcher {
 			update_post_meta( $post_id, '_feeds_item_pub_date', $pub_date );
 		}
 
-		// Thumbnail.
+		// Thumbnail - try multiple methods.
+		$thumbnail_url = null;
+
+		// Method 1: Try enclosure thumbnail.
 		$enclosure = $item->get_enclosure();
 		if ( $enclosure && $enclosure->get_thumbnail() ) {
-			update_post_meta( $post_id, '_feeds_item_thumbnail_url', $enclosure->get_thumbnail() );
-		} elseif ( $enclosure && $enclosure->get_link() ) {
-			// Check if enclosure is an image.
+			$thumbnail_url = $enclosure->get_thumbnail();
+		}
+
+		// Method 2: Try image enclosure.
+		if ( ! $thumbnail_url && $enclosure && $enclosure->get_link() ) {
 			$type = $enclosure->get_type();
 			if ( $type && strpos( $type, 'image/' ) === 0 ) {
-				update_post_meta( $post_id, '_feeds_item_thumbnail_url', $enclosure->get_link() );
+				$thumbnail_url = $enclosure->get_link();
 			}
+		}
+
+		// Method 3: Try all enclosures for images.
+		if ( ! $thumbnail_url ) {
+			$enclosures = $item->get_enclosures();
+			if ( $enclosures ) {
+				foreach ( $enclosures as $enclosure_item ) {
+					// First try thumbnail.
+					if ( $enclosure_item->get_thumbnail() ) {
+						$thumbnail_url = $enclosure_item->get_thumbnail();
+						break;
+					}
+					// Then try image type.
+					$type = $enclosure_item->get_type();
+					if ( $type && strpos( $type, 'image/' ) === 0 ) {
+						$thumbnail_url = $enclosure_item->get_link();
+						break;
+					}
+				}
+			}
+		}
+
+		// Method 4: Try media:thumbnail from item tags.
+		if ( ! $thumbnail_url ) {
+			$media_thumbnail = $item->get_item_tags( 'http://search.yahoo.com/mrss/', 'thumbnail' );
+			if ( $media_thumbnail && isset( $media_thumbnail[0]['attribs']['']['url'] ) ) {
+				$thumbnail_url = $media_thumbnail[0]['attribs']['']['url'];
+			}
+		}
+
+		// Method 5: Try media:content for images.
+		if ( ! $thumbnail_url ) {
+			$media_content = $item->get_item_tags( 'http://search.yahoo.com/mrss/', 'content' );
+			if ( $media_content ) {
+				foreach ( $media_content as $content ) {
+					if ( isset( $content['attribs']['']['medium'] ) && $content['attribs']['']['medium'] === 'image' ) {
+						if ( isset( $content['attribs']['']['url'] ) ) {
+							$thumbnail_url = $content['attribs']['']['url'];
+							break;
+						}
+					} elseif ( isset( $content['attribs']['']['type'] ) && strpos( $content['attribs']['']['type'], 'image/' ) === 0 ) {
+						if ( isset( $content['attribs']['']['url'] ) ) {
+							$thumbnail_url = $content['attribs']['']['url'];
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		// Method 6: Extract first image from HTML content.
+		if ( ! $thumbnail_url ) {
+			$content = $item->get_content();
+			if ( $content ) {
+				// Use regex to find the first img tag with src attribute.
+				if ( preg_match( '/<img[^>]+src=["\']([^"\']+)["\'][^>]*>/i', $content, $matches ) ) {
+					$thumbnail_url = $matches[1];
+				}
+			}
+		}
+
+		// Save thumbnail if found.
+		if ( $thumbnail_url ) {
+			update_post_meta( $post_id, '_feeds_item_thumbnail_url', $thumbnail_url );
 		}
 
 		// Assign categories from source.
