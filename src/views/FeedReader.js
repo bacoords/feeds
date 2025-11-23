@@ -131,9 +131,13 @@ const FeedReader = () => {
       getValue: (item) => item.title.rendered,
       render: ({ item }) => (
         <div>
-          <strong>{item.title.rendered}</strong>
-          {hasLabel(item, "read") && (
-            <span style={{ marginLeft: "8px", color: "#666" }}>✓</span>
+          {hasLabel(item, "read") ? (
+            <>
+              {item.title.rendered}
+              <span style={{ marginLeft: "8px", color: "#666" }}>✓</span>
+            </>
+          ) : (
+            <strong>{item.title.rendered}</strong>
           )}
         </div>
       ),
@@ -170,6 +174,24 @@ const FeedReader = () => {
       render: ({ item }) => {
         const author = item.meta?._feeds_item_author;
         return author || <span style={{ color: "#999" }}>—</span>;
+      },
+      enableSorting: false,
+    },
+    {
+      id: "status",
+      type: "enumeration",
+      label: __("Status", "feeds"),
+      elements: [
+        { value: "read", label: __("Read", "feeds") },
+        { value: "unread", label: __("Unread", "feeds") },
+        { value: "all", label: __("All", "feeds") },
+      ],
+      getValue: (item) => (hasLabel(item, "read") ? "read" : "unread"),
+      filterBy: {
+        operators: ["is", "isNot"],
+      },
+      render: ({ item }) => {
+        return hasLabel(item, "read") ? "read" : "unread";
       },
       enableSorting: false,
     },
