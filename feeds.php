@@ -68,6 +68,11 @@ class Feeds_Plugin {
 		require_once FEEDS_PLUGIN_DIR . 'includes/class-rss-fetcher.php';
 		require_once FEEDS_PLUGIN_DIR . 'includes/class-scheduler.php';
 		require_once FEEDS_PLUGIN_DIR . 'includes/class-asset-loader.php';
+
+		// WP-CLI commands.
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			require_once FEEDS_PLUGIN_DIR . 'includes/class-cli-commands.php';
+		}
 	}
 
 	/**
@@ -85,6 +90,11 @@ class Feeds_Plugin {
 		Feeds_RSS_Fetcher::get_instance();
 		Feeds_Scheduler::get_instance();
 		Feeds_Asset_Loader::get_instance();
+
+		// Register WP-CLI commands.
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			WP_CLI::add_command( 'feeds', 'Feeds_CLI_Commands' );
+		}
 	}
 
 	/**
