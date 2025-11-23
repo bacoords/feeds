@@ -1,0 +1,134 @@
+@import "@wordpress/dataviews/build-style/style.css";
+
+/**
+ * Feeds App Styles
+ */
+body.toplevel_page_feeds{
+	#wpwrap{
+		background-color: #fff;
+	}
+}
+
+.feeds-app-container {
+	max-width: 100%;
+	margin: 20px 0;
+}
+
+.feeds-app-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 20px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid #ddd;
+}
+
+.feeds-app-header h1 {
+	margin: 0;
+	font-size: 24px;
+}
+
+.feeds-app-nav {
+	display: flex;
+	gap: 10px;
+}
+
+.feeds-app-content {
+	margin-top: 20px;
+}
+
+.feeds-reader-container {
+	display: flex;
+	gap: 20px;
+}
+
+.feeds-sidebar {
+	width: 250px;
+	flex-shrink: 0;
+}
+
+.feeds-main-content {
+	flex: 1;
+	min-width: 0;
+}
+
+.feeds-category-list {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.feeds-category-item {
+	padding: 8px 12px;
+	margin-bottom: 4px;
+	cursor: pointer;
+	border-radius: 4px;
+	transition: background-color 0.2s;
+}
+
+.feeds-category-item:hover {
+	background-color: #f0f0f0;
+}
+
+.feeds-category-item.active {
+	background-color: #2271b1;
+	color: white;
+}
+
+.feeds-article-drawer {
+	position: fixed;
+	top: 0;
+	right: 0;
+	width: 600px;
+	height: 100vh;
+	background: white;
+	box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+	z-index: 100000;
+	overflow-y: auto;
+	transform: translateX(100%);
+	transition: transform 0.3s ease-in-out;
+}
+
+.feeds-article-drawer.open {
+	transform: translateX(0);
+}
+
+.feeds-article-drawer-header {
+	position: sticky;
+	top: 0;
+	background: white;
+	padding: 20px;
+	border-bottom: 1px solid #ddd;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	z-index: 1;
+}
+
+.feeds-article-drawer-content {
+	padding: 20px;
+}
+
+.feeds-article-drawer-content h1 {
+	margin-top: 0;
+	line-height: 1.4;
+}
+
+.feeds-article-drawer-meta {
+	color: #666;
+	font-size: 14px;
+	margin-bottom: 20px;
+}
+
+.feeds-article-drawer-body {
+	line-height: 1.6;
+}
+
+.feeds-article-drawer-body img {
+	max-width: 100%;
+	height: auto;
+}
+
+.feeds-add-feed-modal {
+	max-width: 500px;
+}
