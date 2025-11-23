@@ -85,11 +85,11 @@ const FeedReader = () => {
   }, [view, readLabelId, favoriteLabelId]);
 
   // Fetch feed items.
-  const { records: feedItems, isResolving: isLoadingItems } = useEntityRecords(
-    "postType",
-    "feeds_item",
-    queryArgs
-  );
+  const {
+    records: feedItems,
+    isResolving: isLoadingItems,
+    totalItems,
+  } = useEntityRecords("postType", "feeds_item", queryArgs);
 
   // Fetch feed sources.
   const { records: feedSources, isResolving: isLoadingSources } =
@@ -328,8 +328,8 @@ const FeedReader = () => {
         onChangeView={setView}
         actions={actions}
         paginationInfo={{
-          totalItems: feedItems?.length || 0,
-          totalPages: Math.ceil((feedItems?.length || 0) / view.perPage),
+          totalItems: totalItems || 0,
+          totalPages: Math.ceil((totalItems || 0) / view.perPage),
         }}
         defaultLayouts={{
           table: {},
