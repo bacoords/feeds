@@ -2,7 +2,7 @@
  * Feed Reader View
  * Main reading interface using DataViews
  */
-import { useState } from "@wordpress/element";
+import { useState, useMemo } from "@wordpress/element";
 import { useEntityRecords } from "@wordpress/core-data";
 import { useDispatch } from "@wordpress/data";
 import { store as coreStore } from "@wordpress/core-data";
@@ -23,32 +23,18 @@ const FeedReader = () => {
       direction: "desc",
     },
     search: "",
-    filters: [],
+    filters: [
+      {
+        field: "status",
+        operator: "is",
+        value: "unread",
+      },
+    ],
     fields: ["title", "feed", "date", "author"],
   });
 
   // Get entity editing functions.
   const { editEntityRecord, saveEditedEntityRecord } = useDispatch(coreStore);
-
-  // Fetch feed items.
-  const { records: feedItems, isResolving: isLoadingItems } = useEntityRecords(
-    "postType",
-    "feeds_item",
-    {
-      per_page: view.perPage,
-      page: view.page,
-      orderby: view.sort.field,
-      order: view.sort.direction,
-      search: view.search,
-      status: "publish",
-    }
-  );
-
-  // Fetch feed sources.
-  const { records: feedSources, isResolving: isLoadingSources } =
-    useEntityRecords("postType", "feeds_source", {
-      per_page: -1,
-    });
 
   // Fetch labels.
   const { records: labels } = useEntityRecords("taxonomy", "feeds_label", {
@@ -60,6 +46,56 @@ const FeedReader = () => {
   const favoriteLabelId = labels?.find(
     (label) => label.slug === "favorite"
   )?.id;
+
+  const queryArgs = useMemo(() => {
+    const filters = {};
+    view.filters.forEach((filter) => {
+      if (
+        filter.field === "status" &&
+        filter.operator === "is" &&
+        filter.value === "read"
+      ) {
+        filters.feeds_label = readLabelId;
+      }
+      if (
+        filter.field === "status" &&
+        filter.operator === "is" &&
+        filter.value === "unread"
+      ) {
+        filters.feeds_label_exclude = readLabelId;
+      }
+      if (
+        filter.field === "status" &&
+        filter.operator === "is" &&
+        filter.value === "favorite"
+      ) {
+        filters.feeds_label = favoriteLabelId;
+      }
+    });
+    console.log(view, filters);
+    return {
+      per_page: view.perPage,
+      page: view.page,
+      orderby: view.sort.field,
+      order: view.sort.direction,
+      search: view.search,
+      status: "publish",
+      ...filters,
+    };
+  }, [view, readLabelId, favoriteLabelId]);
+
+  // Fetch feed items.
+  const { records: feedItems, isResolving: isLoadingItems } = useEntityRecords(
+    "postType",
+    "feeds_item",
+    queryArgs
+  );
+
+  // Fetch feed sources.
+  const { records: feedSources, isResolving: isLoadingSources } =
+    useEntityRecords("postType", "feeds_source", {
+      per_page: -1,
+    });
 
   // Helper to check if item has a label.
   const hasLabel = (item, labelSlug) => {
@@ -129,7 +165,7 @@ const FeedReader = () => {
       type: "text",
       label: __("Title", "feeds"),
       getValue: (item) => item.title.rendered,
-      render: ({ item }) => (
+      render: ({ item, field, config }) => (
         <div>
           {hasLabel(item, "read") ? (
             <>
@@ -139,6 +175,7 @@ const FeedReader = () => {
           ) : (
             <strong>{item.title.rendered}</strong>
           )}
+          {/* {config.sizes === "comfortable" ?? <>{item.excerpt.rendered}</>} */}
         </div>
       ),
       enableHiding: false,
@@ -184,6 +221,7 @@ const FeedReader = () => {
       elements: [
         { value: "read", label: __("Read", "feeds") },
         { value: "unread", label: __("Unread", "feeds") },
+        { value: "favorite", label: __("Favorites", "feeds") },
         { value: "all", label: __("All", "feeds") },
       ],
       getValue: (item) => (hasLabel(item, "read") ? "read" : "unread"),
