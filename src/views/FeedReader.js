@@ -8,7 +8,7 @@ import { useDispatch } from "@wordpress/data";
 import { store as coreStore } from "@wordpress/core-data";
 import { DataViews } from "@wordpress/dataviews/wp";
 import { __ } from "@wordpress/i18n";
-import { Spinner } from "@wordpress/components";
+import { Spinner, Button } from "@wordpress/components";
 import { starEmpty } from "@wordpress/icons";
 import ArticleDrawer from "../components/ArticleDrawer";
 
@@ -166,7 +166,7 @@ const FeedReader = () => {
       label: __("Title", "feeds"),
       getValue: (item) => item.title.rendered,
       render: ({ item, field, config }) => (
-        <div>
+        <Button onclick={() => setSelectedArticle(item)}>
           {hasLabel(item, "read") ? (
             <>
               {item.title.rendered}
@@ -176,7 +176,7 @@ const FeedReader = () => {
             <strong>{item.title.rendered}</strong>
           )}
           {/* {config.sizes === "comfortable" ?? <>{item.excerpt.rendered}</>} */}
-        </div>
+        </Button>
       ),
       enableHiding: false,
       enableSorting: true,
@@ -235,6 +235,30 @@ const FeedReader = () => {
     },
   ];
 
+  // Handle closing the article drawer.
+  const handleCloseArticle = () => {
+    if (selectedArticle) {
+      // Mark as read when closing.
+      markAsRead(selectedArticle.id, true, selectedArticle);
+    }
+    setSelectedArticle(null);
+  };
+
+  // Handle toggling favorite for the selected article.
+  const handleToggleFavoriteArticle = async () => {
+    if (selectedArticle) {
+      await toggleFavorite(selectedArticle.id, selectedArticle);
+
+      // Update the selected article state with fresh data from the store.
+      const updatedItem = feedItems?.find(
+        (item) => item.id === selectedArticle.id
+      );
+      if (updatedItem) {
+        setSelectedArticle(updatedItem);
+      }
+    }
+  };
+
   // Define actions.
   const actions = [
     {
@@ -244,7 +268,6 @@ const FeedReader = () => {
       callback(items) {
         if (items.length === 1) {
           setSelectedArticle(items[0]);
-          markAsRead(items[0].id, true, items[0]);
         }
       },
     },
@@ -302,7 +325,9 @@ const FeedReader = () => {
       {selectedArticle && (
         <ArticleDrawer
           article={selectedArticle}
-          onClose={() => setSelectedArticle(null)}
+          onClose={handleCloseArticle}
+          onToggleFavorite={handleToggleFavoriteArticle}
+          isFavorite={hasLabel(selectedArticle, "favorite")}
         />
       )}
     </div>

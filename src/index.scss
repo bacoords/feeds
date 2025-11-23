@@ -41,7 +41,8 @@ body.toplevel_page_feeds{
 	position: fixed;
 	top: 0;
 	right: 0;
-	width: 600px;
+	max-width: 600px;
+	width: 100vw;
 	height: 100vh;
 	background: white;
 	box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);

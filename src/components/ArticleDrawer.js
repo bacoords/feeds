@@ -4,10 +4,10 @@
  */
 import { useEffect } from '@wordpress/element';
 import { Button, Icon } from '@wordpress/components';
-import { close, external } from '@wordpress/icons';
+import { close, external, starFilled, starEmpty } from '@wordpress/icons';
 import { __ } from '@wordpress/i18n';
 
-const ArticleDrawer = ( { article, onClose } ) => {
+const ArticleDrawer = ( { article, onClose, onToggleFavorite, isFavorite } ) => {
 	// Close on ESC key.
 	useEffect( () => {
 		const handleEsc = ( event ) => {
@@ -33,6 +33,15 @@ const ArticleDrawer = ( { article, onClose } ) => {
 			<div className="feeds-article-drawer-header">
 				<h2>{ __( 'Article', 'feeds' ) }</h2>
 				<div style={ { display: 'flex', gap: '10px' } }>
+					<Button
+						variant="secondary"
+						icon={ isFavorite ? starFilled : starEmpty }
+						onClick={ onToggleFavorite }
+					>
+						{ isFavorite
+							? __( 'Unfavorite', 'feeds' )
+							: __( 'Favorite', 'feeds' ) }
+					</Button>
 					{ permalink && (
 						<Button
 							variant="secondary"
