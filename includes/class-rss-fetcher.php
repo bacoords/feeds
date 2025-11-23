@@ -180,8 +180,6 @@ class Feeds_RSS_Fetcher {
 		// Add meta data.
 		update_post_meta( $post_id, '_feeds_item_source_id', $source_id );
 		update_post_meta( $post_id, '_feeds_item_permalink', $item->get_permalink() );
-		update_post_meta( $post_id, '_feeds_item_is_read', false );
-		update_post_meta( $post_id, '_feeds_item_is_favorite', false );
 
 		// Author.
 		$author = $item->get_author();

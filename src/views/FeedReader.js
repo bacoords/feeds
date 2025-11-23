@@ -28,7 +28,7 @@ const FeedReader = () => {
   });
 
   // Get entity editing functions.
-  const { editEntityRecord } = useDispatch(coreStore);
+  const { editEntityRecord, saveEditedEntityRecord } = useDispatch(coreStore);
 
   // Fetch feed items.
   const { records: feedItems, isResolving: isLoadingItems } = useEntityRecords(
@@ -50,22 +50,69 @@ const FeedReader = () => {
       per_page: -1,
     });
 
-  // Mark item as read.
-  const markAsRead = (itemId, isRead = true) => {
-    editEntityRecord("postType", "feeds_item", itemId, {
-      meta: {
-        _feeds_item_is_read: isRead,
-      },
+  // Fetch labels.
+  const { records: labels } = useEntityRecords("taxonomy", "feeds_label", {
+    per_page: -1,
+  });
+
+  // Get label IDs.
+  const readLabelId = labels?.find((label) => label.slug === "read")?.id;
+  const favoriteLabelId = labels?.find(
+    (label) => label.slug === "favorite"
+  )?.id;
+
+  // Helper to check if item has a label.
+  const hasLabel = (item, labelSlug) => {
+    return item.feeds_label?.some((id) => {
+      const label = labels?.find((l) => l.id === id);
+      return label?.slug === labelSlug;
     });
   };
 
-  // Toggle favorite.
-  const toggleFavorite = (itemId, isFavorite) => {
+  // Mark item as read.
+  const markAsRead = async (itemId, isRead = true, currentItem) => {
+    const currentLabels = currentItem.feeds_label || [];
+    let newLabels;
+
+    if (isRead && readLabelId) {
+      // Add read label if not present.
+      newLabels = currentLabels.includes(readLabelId)
+        ? currentLabels
+        : [...currentLabels, readLabelId];
+    } else if (!isRead && readLabelId) {
+      // Remove read label.
+      newLabels = currentLabels.filter((id) => id !== readLabelId);
+    } else {
+      newLabels = currentLabels;
+    }
+
     editEntityRecord("postType", "feeds_item", itemId, {
-      meta: {
-        _feeds_item_is_favorite: !isFavorite,
-      },
+      feeds_label: newLabels,
     });
+
+    await saveEditedEntityRecord("postType", "feeds_item", itemId);
+  };
+
+  // Toggle favorite.
+  const toggleFavorite = async (itemId, currentItem) => {
+    const currentLabels = currentItem.feeds_label || [];
+    let newLabels;
+
+    if (favoriteLabelId) {
+      if (currentLabels.includes(favoriteLabelId)) {
+        // Remove favorite label.
+        newLabels = currentLabels.filter((id) => id !== favoriteLabelId);
+      } else {
+        // Add favorite label.
+        newLabels = [...currentLabels, favoriteLabelId];
+      }
+
+      editEntityRecord("postType", "feeds_item", itemId, {
+        feeds_label: newLabels,
+      });
+
+      await saveEditedEntityRecord("postType", "feeds_item", itemId);
+    }
   };
 
   // Helper function to get feed source name.
@@ -85,7 +132,7 @@ const FeedReader = () => {
       render: ({ item }) => (
         <div>
           <strong>{item.title.rendered}</strong>
-          {item.meta._feeds_item_is_read && (
+          {hasLabel(item, "read") && (
             <span style={{ marginLeft: "8px", color: "#666" }}>✓</span>
           )}
         </div>
@@ -137,7 +184,7 @@ const FeedReader = () => {
       callback(items) {
         if (items.length === 1) {
           setSelectedArticle(items[0]);
-          markAsRead(items[0].id, true);
+          markAsRead(items[0].id, true, items[0]);
         }
       },
     },
@@ -146,7 +193,7 @@ const FeedReader = () => {
       label: __("Mark as Read", "feeds"),
       callback(items) {
         items.forEach((item) => {
-          markAsRead(item.id, true);
+          markAsRead(item.id, true, item);
         });
       },
     },
@@ -155,7 +202,7 @@ const FeedReader = () => {
       label: __("Mark as Unread", "feeds"),
       callback(items) {
         items.forEach((item) => {
-          markAsRead(item.id, false);
+          markAsRead(item.id, false, item);
         });
       },
     },
@@ -165,7 +212,7 @@ const FeedReader = () => {
       icon: starEmpty,
       callback(items) {
         items.forEach((item) => {
-          toggleFavorite(item.id, item.meta._feeds_item_is_favorite);
+          toggleFavorite(item.id, item);
         });
       },
     },

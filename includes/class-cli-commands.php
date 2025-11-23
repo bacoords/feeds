@@ -115,6 +115,32 @@ class Feeds_CLI_Commands {
 	}
 
 	/**
+	 * Creates the default label terms (favorite and read).
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp feeds create-labels
+	 *
+	 * @when after_wp_load
+	 */
+	public function create_labels( $args, $assoc_args ) {
+		WP_CLI::line( 'Creating default label terms...' );
+		Feeds_Label_Taxonomy::create_default_terms();
+
+		// Verify they were created.
+		$favorite = get_term_by( 'slug', 'favorite', 'feeds_label' );
+		$read     = get_term_by( 'slug', 'read', 'feeds_label' );
+
+		if ( $favorite && $read ) {
+			WP_CLI::success( 'Label terms created successfully:' );
+			WP_CLI::line( sprintf( '  - Favorite (ID: %d)', $favorite->term_id ) );
+			WP_CLI::line( sprintf( '  - Read (ID: %d)', $read->term_id ) );
+		} else {
+			WP_CLI::error( 'Failed to create label terms. Check that the feeds_label taxonomy is registered.' );
+		}
+	}
+
+	/**
 	 * Helper function to delete all feed items
 	 *
 	 * @return int Number of items deleted.
