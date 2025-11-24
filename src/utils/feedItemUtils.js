@@ -147,13 +147,12 @@ export const getFields = (feedSources) => [
     getValue: (item) => item.title.rendered,
     render: ({ item }) => (
       <>
-        {hasLabel(item, "read") ? (
-          <>
-            {item.title.rendered}
-            <span style={{ marginLeft: "8px", color: "#666" }}>✓</span>
-          </>
-        ) : (
-          <>{item.title.rendered}</>
+        <>{item.title.rendered}</>
+        {hasLabel(item, "read") && (
+          <span style={{ marginInline: "8px", color: "#666" }}>✓</span>
+        )}
+        {hasLabel(item, "favorite") && (
+          <span style={{ marginRight: "8px", color: "#e66771" }}>♥</span>
         )}
       </>
     ),
