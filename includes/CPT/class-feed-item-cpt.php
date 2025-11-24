@@ -47,7 +47,6 @@ class Feeds_Feed_Item_CPT {
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'init', array( $this, 'register_meta_fields' ) );
 		add_action( 'init', array( $this, 'register_taxonomy' ) );
-		add_filter( 'rest_pre_dispatch', array( $this, 'before_feed_items_get_request' ), 10, 3 );
 	}
 
 	/**
@@ -197,31 +196,11 @@ class Feeds_Feed_Item_CPT {
 	}
 
 	/**
-	 * Hook to run before feed_items GET request
-	 *
-	 * @param mixed           $result  Response to replace the requested version with.
-	 * @param WP_REST_Server  $server  Server instance.
-	 * @param WP_REST_Request $request Request used to generate the response.
-	 * @return mixed
-	 */
-	public function before_feed_items_get_request( $result, $server, $request ) {
-		// Check if this is a GET request for feed_items.
-		$route = $request->get_route();
-		$method = $request->get_method();
-
-		if ( 'GET' === $method && false !== strpos( $route, '/wp/v2/feed_items' ) ) {
-			$this->mark_read_posts_as_draft();
-		}
-
-		return $result;
-	}
-
-	/**
 	 * Mark all read posts as draft
 	 * This function finds all posts with the 'read' meta key set to true
 	 * and changes their post_status to 'draft'
 	 */
-	public function mark_read_posts_as_draft() {
+	public static function mark_read_posts_as_draft() {
 		// Query for all published posts with _feeds_item_is_read = true.
 		$args = array(
 			'post_type'      => self::POST_TYPE,
