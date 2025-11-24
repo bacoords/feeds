@@ -9,12 +9,14 @@ import { store as coreStore } from "@wordpress/core-data";
 import { DataViews } from "@wordpress/dataviews/wp";
 import { __ } from "@wordpress/i18n";
 import { Button, Spinner } from "@wordpress/components";
-import { plus, trash, update } from "@wordpress/icons";
+import { plus, trash, update, upload } from "@wordpress/icons";
 import apiFetch from "@wordpress/api-fetch";
 import AddFeedModal from "../components/AddFeedModal";
+import ImportOPMLModal from "../components/ImportOPMLModal";
 
 const FeedManager = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [view, setView] = useState({
     type: "table",
     perPage: 20,
@@ -169,13 +171,20 @@ const FeedManager = () => {
 
   return (
     <div className="feeds-manager-container">
-      <div style={{ marginBottom: "20px" }}>
+      <div style={{ marginBottom: "20px", display: "flex", gap: "10px" }}>
         <Button
           variant="primary"
           icon={plus}
           onClick={() => setIsAddModalOpen(true)}
         >
           {__("Add New Feed", "feeds")}
+        </Button>
+        <Button
+          variant="secondary"
+          icon={upload}
+          onClick={() => setIsImportModalOpen(true)}
+        >
+          {__("Import OPML", "feeds")}
         </Button>
       </div>
 
@@ -196,6 +205,10 @@ const FeedManager = () => {
 
       {isAddModalOpen && (
         <AddFeedModal onClose={() => setIsAddModalOpen(false)} />
+      )}
+
+      {isImportModalOpen && (
+        <ImportOPMLModal onClose={() => setIsImportModalOpen(false)} />
       )}
     </div>
   );

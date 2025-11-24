@@ -64,6 +64,18 @@ class Feeds_RSS_Fetcher {
 				),
 			)
 		);
+
+		register_rest_route(
+			'feeds/v1',
+			'/import-opml',
+			array(
+				'methods'             => 'POST',
+				'callback'            => array( $this, 'import_opml' ),
+				'permission_callback' => function() {
+					return current_user_can( 'manage_options' );
+				},
+			)
+		);
 	}
 
 	/**
@@ -139,6 +151,15 @@ class Feeds_RSS_Fetcher {
 	 * @param array          $categories Category IDs to assign.
 	 */
 	private function process_feed_item( $item, $source_id, $categories = array() ) {
+		// Check item age - skip if too old.
+		$max_age_days = apply_filters( 'feeds_import_max_age_days', 60 );
+		$item_date    = $item->get_date( 'U' );
+		$cutoff_date  = strtotime( "-{$max_age_days} days" );
+
+		if ( $item_date && $item_date < $cutoff_date ) {
+			return; // Item is too old, skip it.
+		}
+
 		$guid = $item->get_id();
 
 		// Check if item already exists.
@@ -304,6 +325,176 @@ class Feeds_RSS_Fetcher {
 				'success' => true,
 				'message' => __( 'Feed refreshed successfully', 'feeds' ),
 			)
+		);
+	}
+
+	/**
+	 * REST API callback to import OPML file
+	 *
+	 * @param WP_REST_Request $request Request object.
+	 * @return WP_REST_Response|WP_Error Response object.
+	 */
+	public function import_opml( $request ) {
+		$files = $request->get_file_params();
+
+		if ( empty( $files['file'] ) ) {
+			return new WP_Error(
+				'no_file',
+				__( 'No file uploaded', 'feeds' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$file = $files['file'];
+
+		// Check file type.
+		$allowed_types = array( 'text/xml', 'application/xml', 'text/x-opml', 'application/octet-stream' );
+		if ( ! in_array( $file['type'], $allowed_types, true ) && ! preg_match( '/\.opml$/i', $file['name'] ) ) {
+			return new WP_Error(
+				'invalid_file_type',
+				__( 'Please upload a valid OPML file', 'feeds' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Read file contents.
+		$opml_content = file_get_contents( $file['tmp_name'] );
+
+		if ( empty( $opml_content ) ) {
+			return new WP_Error(
+				'empty_file',
+				__( 'The uploaded file is empty', 'feeds' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		// Parse OPML.
+		$xml = simplexml_load_string( $opml_content );
+
+		if ( false === $xml ) {
+			return new WP_Error(
+				'invalid_opml',
+				__( 'Failed to parse OPML file', 'feeds' ),
+				array( 'status' => 400 )
+			);
+		}
+
+		$imported = 0;
+		$skipped  = 0;
+
+		// Process outline elements (feeds).
+		if ( isset( $xml->body->outline ) ) {
+			foreach ( $xml->body->outline as $outline ) {
+				$result = $this->process_opml_outline( $outline );
+				if ( $result ) {
+					$imported += $result['imported'];
+					$skipped  += $result['skipped'];
+				}
+			}
+		}
+
+		return rest_ensure_response(
+			array(
+				'success'  => true,
+				'imported' => $imported,
+				'skipped'  => $skipped,
+				'message'  => sprintf(
+					__( 'OPML import complete. Imported: %d, Skipped: %d', 'feeds' ),
+					$imported,
+					$skipped
+				),
+			)
+		);
+	}
+
+	/**
+	 * Process OPML outline element recursively
+	 *
+	 * @param SimpleXMLElement $outline Outline element.
+	 * @param array            $categories Category IDs to assign.
+	 * @return array Count of imported and skipped feeds.
+	 */
+	private function process_opml_outline( $outline, $categories = array() ) {
+		$imported = 0;
+		$skipped  = 0;
+
+		// Check if this is a folder/category.
+		if ( isset( $outline['text'] ) && ! isset( $outline['xmlUrl'] ) ) {
+			// This is a category/folder.
+			$category_name = (string) $outline['text'];
+
+			// Create or get category term.
+			$term = term_exists( $category_name, 'feeds_category' );
+			if ( ! $term ) {
+				$term = wp_insert_term( $category_name, 'feeds_category' );
+			}
+
+			if ( ! is_wp_error( $term ) && isset( $term['term_id'] ) ) {
+				$cat_ids = array_merge( $categories, array( $term['term_id'] ) );
+
+				// Process child outlines.
+				if ( isset( $outline->outline ) ) {
+					foreach ( $outline->outline as $child ) {
+						$result    = $this->process_opml_outline( $child, $cat_ids );
+						$imported += $result['imported'];
+						$skipped  += $result['skipped'];
+					}
+				}
+			}
+		} elseif ( isset( $outline['xmlUrl'] ) ) {
+			// This is a feed.
+			$feed_url  = (string) $outline['xmlUrl'];
+			$feed_name = isset( $outline['title'] ) ? (string) $outline['title'] : ( isset( $outline['text'] ) ? (string) $outline['text'] : $feed_url );
+
+			// Check if feed already exists.
+			$existing = get_posts(
+				array(
+					'post_type'      => Feeds_Feed_Source_CPT::POST_TYPE,
+					'post_status'    => 'any',
+					'posts_per_page' => 1,
+					'meta_query'     => array(
+						array(
+							'key'   => '_feeds_source_url',
+							'value' => $feed_url,
+						),
+					),
+				)
+			);
+
+			if ( ! empty( $existing ) ) {
+				$skipped++;
+			} else {
+				// Create new feed source.
+				$post_id = wp_insert_post(
+					array(
+						'post_type'   => Feeds_Feed_Source_CPT::POST_TYPE,
+						'post_title'  => $feed_name,
+						'post_status' => 'publish',
+					)
+				);
+
+				if ( ! is_wp_error( $post_id ) && $post_id ) {
+					update_post_meta( $post_id, '_feeds_source_url', $feed_url );
+
+					// Assign categories.
+					if ( ! empty( $categories ) ) {
+						wp_set_object_terms( $post_id, $categories, 'feeds_category' );
+					}
+
+					$imported++;
+
+					// Schedule the feed fetch to happen in the background.
+					$scheduler = Feeds_Scheduler::get_instance();
+					$scheduler->schedule_single_fetch( $post_id );
+				} else {
+					$skipped++;
+				}
+			}
+		}
+
+		return array(
+			'imported' => $imported,
+			'skipped'  => $skipped,
 		);
 	}
 }
