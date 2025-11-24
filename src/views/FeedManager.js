@@ -4,6 +4,8 @@
  */
 import { useState } from "@wordpress/element";
 import { useEntityRecords } from "@wordpress/core-data";
+import { useDispatch } from "@wordpress/data";
+import { store as coreStore } from "@wordpress/core-data";
 import { DataViews } from "@wordpress/dataviews/wp";
 import { __ } from "@wordpress/i18n";
 import { Button, Spinner } from "@wordpress/components";
@@ -39,6 +41,9 @@ const FeedManager = () => {
     }
   );
 
+  // Get datastore dispatch functions.
+  const { deleteEntityRecord } = useDispatch(coreStore);
+
   // Refresh a feed.
   const refreshFeed = async (sourceId) => {
     try {
@@ -61,10 +66,7 @@ const FeedManager = () => {
     }
 
     try {
-      await apiFetch({
-        path: `/wp/v2/feeds_source/${sourceId}`,
-        method: "DELETE",
-      });
+      await deleteEntityRecord("postType", "feeds_source", sourceId, {}, { throwOnError: true });
     } catch (error) {
       console.error("Error deleting feed:", error);
       alert(__("Failed to delete feed", "feeds"));

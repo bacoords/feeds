@@ -11,12 +11,16 @@ import {
 } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import apiFetch from '@wordpress/api-fetch';
+import { useDispatch } from '@wordpress/data';
+import { store as coreStore } from '@wordpress/core-data';
 
 const AddFeedModal = ( { onClose } ) => {
 	const [ feedUrl, setFeedUrl ] = useState( '' );
 	const [ feedName, setFeedName ] = useState( '' );
 	const [ isLoading, setIsLoading ] = useState( false );
 	const [ error, setError ] = useState( null );
+
+	const { saveEntityRecord } = useDispatch( coreStore );
 
 	const handleSubmit = async () => {
 		if ( ! feedUrl ) {
@@ -28,26 +32,22 @@ const AddFeedModal = ( { onClose } ) => {
 		setError( null );
 
 		try {
-			// Create the feed source post.
-			const response = await apiFetch( {
-				path: '/wp/v2/feeds_source',
-				method: 'POST',
-				data: {
-					title: feedName || feedUrl,
-					status: 'publish',
-					meta: {
-						_feeds_source_url: feedUrl,
-					},
+			// Create the feed source post using datastore.
+			const savedRecord = await saveEntityRecord( 'postType', 'feeds_source', {
+				title: feedName || feedUrl,
+				status: 'publish',
+				meta: {
+					_feeds_source_url: feedUrl,
 				},
 			} );
 
 			// Trigger an immediate fetch.
 			await apiFetch( {
-				path: `/feeds/v1/refresh/${ response.id }`,
+				path: `/feeds/v1/refresh/${ savedRecord.id }`,
 				method: 'POST',
 			} );
 
-			// Close the modal.
+			// Close the modal - DataViews will auto-update.
 			onClose();
 		} catch ( err ) {
 			console.error( 'Error adding feed:', err );
