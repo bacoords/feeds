@@ -19,7 +19,7 @@ const FeedReader = () => {
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [totalItems, setTotalItems] = useState(0);
   const [view, setView] = useState({
-    type: "table",
+    type: "list",
     perPage: 20,
     page: 1,
     sort: {
@@ -28,7 +28,9 @@ const FeedReader = () => {
     },
     search: "",
     filters: [],
-    fields: ["title", "feed", "date", "author"],
+    fields: ["feed", "date", "author"],
+    titleField: "title",
+    descriptionField: "excerpt",
   });
 
   // Fetch labels.
@@ -204,16 +206,14 @@ const FeedReader = () => {
       getValue: (item) => item.title.rendered,
       render: ({ item }) => (
         <>
-          <Button onclick={() => setSelectedArticle(item)}>
-            {hasLabel(item, "read") ? (
-              <>
-                {item.title.rendered}
-                <span style={{ marginLeft: "8px", color: "#666" }}>✓</span>
-              </>
-            ) : (
-              <strong>{item.title.rendered}</strong>
-            )}
-          </Button>
+          {hasLabel(item, "read") ? (
+            <>
+              {item.title.rendered}
+              <span style={{ marginLeft: "8px", color: "#666" }}>✓</span>
+            </>
+          ) : (
+            <strong>{item.title.rendered}</strong>
+          )}
         </>
       ),
       enableHiding: false,
@@ -227,6 +227,18 @@ const FeedReader = () => {
       render: ({ item }) => {
         const date = new Date(item.date);
         return date.toLocaleDateString();
+      },
+      enableSorting: true,
+    },
+    {
+      id: "excerpt",
+      type: "text",
+      label: __("Excerpt", "feeds"),
+      getValue: (item) => item.excerpt.rendered,
+      render: ({ item }) => {
+        return (
+          <div dangerouslySetInnerHTML={{ __html: item.excerpt.rendered }} />
+        );
       },
       enableSorting: true,
     },
@@ -351,6 +363,7 @@ const FeedReader = () => {
           totalPages: Math.ceil((totalItems || 0) / view.perPage),
         }}
         defaultLayouts={{
+          list: {},
           table: {},
         }}
       />
