@@ -2,18 +2,22 @@
  * Feed Reader View
  * Main reading interface using DataViews
  */
-import { useState, useMemo } from "@wordpress/element";
+import { useState, useMemo, useEffect } from "@wordpress/element";
 import { useEntityRecords } from "@wordpress/core-data";
-import { useDispatch } from "@wordpress/data";
+import { useDispatch, useSelect } from "@wordpress/data";
 import { store as coreStore } from "@wordpress/core-data";
 import { DataViews } from "@wordpress/dataviews/wp";
 import { __ } from "@wordpress/i18n";
 import { Spinner, Button } from "@wordpress/components";
 import { starEmpty } from "@wordpress/icons";
+import apiFetch from "@wordpress/api-fetch";
 import ArticleDrawer from "../components/ArticleDrawer";
 
 const FeedReader = () => {
   const [selectedArticle, setSelectedArticle] = useState(null);
+  const [feedItems, setFeedItems] = useState([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
+  const [totalItems, setTotalItems] = useState(0);
   const [view, setView] = useState({
     type: "table",
     perPage: 20,
@@ -23,73 +27,80 @@ const FeedReader = () => {
       direction: "desc",
     },
     search: "",
-    filters: [
-      {
-        field: "status",
-        operator: "is",
-        value: "unread",
-      },
-    ],
+    filters: [],
     fields: ["title", "feed", "date", "author"],
   });
-
-  // Get entity editing functions.
-  const { editEntityRecord, saveEditedEntityRecord } = useDispatch(coreStore);
 
   // Fetch labels.
   const { records: labels } = useEntityRecords("taxonomy", "feeds_label", {
     per_page: -1,
   });
 
-  // Get label IDs.
-  const readLabelId = labels?.find((label) => label.slug === "read")?.id;
+  // Get label IDs (only need favorite now since read is handled via meta).
   const favoriteLabelId = labels?.find(
     (label) => label.slug === "favorite"
   )?.id;
 
-  const queryArgs = useMemo(() => {
-    const filters = {};
-    view.filters.forEach((filter) => {
-      if (
-        filter.field === "status" &&
-        filter.operator === "is" &&
-        filter.value === "read"
-      ) {
-        filters.feeds_label = readLabelId;
-      }
-      if (
-        filter.field === "status" &&
-        filter.operator === "is" &&
-        filter.value === "unread"
-      ) {
-        filters.feeds_label_exclude = readLabelId;
-      }
-      if (
-        filter.field === "status" &&
-        filter.operator === "is" &&
-        filter.value === "favorite"
-      ) {
-        filters.feeds_label = favoriteLabelId;
-      }
-    });
-    console.log(view, filters);
-    return {
-      per_page: view.perPage,
-      page: view.page,
-      orderby: view.sort.field,
-      order: view.sort.direction,
-      search: view.search,
-      status: "publish",
-      ...filters,
-    };
-  }, [view, readLabelId, favoriteLabelId]);
+  // Fetch feed items manually with REST API.
+  useEffect(() => {
+    const fetchFeedItems = async () => {
+      setIsLoadingItems(true);
 
-  // Fetch feed items.
-  const {
-    records: feedItems,
-    isResolving: isLoadingItems,
-    totalItems,
-  } = useEntityRecords("postType", "feeds_item", queryArgs);
+      const filters = {};
+      view.filters.forEach((filter) => {
+        if (
+          filter.field === "status" &&
+          filter.operator === "is" &&
+          filter.value === "read"
+        ) {
+          filters.is_read = true;
+        }
+        if (
+          filter.field === "status" &&
+          filter.operator === "is" &&
+          filter.value === "unread"
+        ) {
+          filters.is_read = false;
+        }
+        if (
+          filter.field === "status" &&
+          filter.operator === "is" &&
+          filter.value === "favorite"
+        ) {
+          filters.feeds_label = favoriteLabelId;
+        }
+      });
+
+      const queryParams = new URLSearchParams({
+        per_page: view.perPage,
+        page: view.page,
+        orderby: view.sort.field,
+        order: view.sort.direction,
+        search: view.search,
+        status: "publish",
+        ...filters,
+      });
+
+      try {
+        const response = await apiFetch({
+          path: `/wp/v2/feed_items?${queryParams.toString()}`,
+          parse: false,
+        });
+
+        const items = await response.json();
+        const total = parseInt(response.headers.get("X-WP-Total"), 10);
+
+        setFeedItems(items);
+        setTotalItems(total);
+      } catch (error) {
+        console.error("Failed to fetch feed items:", error);
+      } finally {
+        setIsLoadingItems(false);
+      }
+    };
+
+    fetchFeedItems();
+  }, [view, favoriteLabelId]);
 
   // Fetch feed sources.
   const { records: feedSources, isResolving: isLoadingSources } =
@@ -99,34 +110,60 @@ const FeedReader = () => {
 
   // Helper to check if item has a label.
   const hasLabel = (item, labelSlug) => {
+    // Handle 'read' status via meta field.
+    if (labelSlug === "read") {
+      return item.meta?._feeds_item_is_read === true;
+    }
+    // Handle other labels via taxonomy.
     return item.feeds_label?.some((id) => {
       const label = labels?.find((l) => l.id === id);
       return label?.slug === labelSlug;
     });
   };
 
-  // Mark item as read.
-  const markAsRead = async (itemId, isRead = true, currentItem) => {
-    const currentLabels = currentItem.feeds_label || [];
-    let newLabels;
+  // Mark item as read - update local state and server.
+  const markAsRead = async (itemId, isRead = true) => {
+    // Optimistically update local state immediately for instant UI feedback.
+    setFeedItems((prevItems) =>
+      prevItems.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              meta: {
+                ...item.meta,
+                _feeds_item_is_read: isRead,
+              },
+            }
+          : item
+      )
+    );
 
-    if (isRead && readLabelId) {
-      // Add read label if not present.
-      newLabels = currentLabels.includes(readLabelId)
-        ? currentLabels
-        : [...currentLabels, readLabelId];
-    } else if (!isRead && readLabelId) {
-      // Remove read label.
-      newLabels = currentLabels.filter((id) => id !== readLabelId);
-    } else {
-      newLabels = currentLabels;
+    // Update selected article if it's the one being modified.
+    if (selectedArticle?.id === itemId) {
+      setSelectedArticle((prev) => ({
+        ...prev,
+        meta: {
+          ...prev.meta,
+          _feeds_item_is_read: isRead,
+        },
+      }));
     }
 
-    editEntityRecord("postType", "feeds_item", itemId, {
-      feeds_label: newLabels,
-    });
-
-    await saveEditedEntityRecord("postType", "feeds_item", itemId);
+    // Save to server in the background.
+    try {
+      await apiFetch({
+        path: `/wp/v2/feed_items/${itemId}`,
+        method: "POST",
+        data: {
+          meta: {
+            _feeds_item_is_read: isRead,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Failed to mark item as read:", error);
+      // Optionally revert the optimistic update on error.
+    }
   };
 
   // Toggle favorite.
@@ -165,7 +202,7 @@ const FeedReader = () => {
       type: "text",
       label: __("Title", "feeds"),
       getValue: (item) => item.title.rendered,
-      render: ({ item, field, config }) => (
+      render: ({ item }) => (
         <>
           <Button onclick={() => setSelectedArticle(item)}>
             {hasLabel(item, "read") ? (
@@ -240,7 +277,7 @@ const FeedReader = () => {
   const handleCloseArticle = () => {
     if (selectedArticle) {
       // Mark as read when closing.
-      markAsRead(selectedArticle.id, true, selectedArticle);
+      markAsRead(selectedArticle.id, true);
     }
     setSelectedArticle(null);
   };
@@ -291,7 +328,7 @@ const FeedReader = () => {
       label: __("Mark as Read", "feeds"),
       callback(items) {
         items.forEach((item) => {
-          markAsRead(item.id, true, item);
+          markAsRead(item.id, true);
         });
       },
     },
@@ -300,7 +337,7 @@ const FeedReader = () => {
       label: __("Mark as Unread", "feeds"),
       callback(items) {
         items.forEach((item) => {
-          markAsRead(item.id, false, item);
+          markAsRead(item.id, false);
         });
       },
     },

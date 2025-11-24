@@ -178,5 +178,20 @@ class Feeds_Feed_Item_CPT {
 				},
 			)
 		);
+
+		// Read.
+		register_post_meta(
+			self::POST_TYPE,
+			'_feeds_item_is_read',
+			array(
+				'type'          => 'boolean',
+				'description'   => __( 'Whether an item is read or not', 'feeds' ),
+				'single'        => true,
+				'show_in_rest'  => true,
+				'auth_callback' => function() {
+					return current_user_can( 'edit_posts' );
+				},
+			)
+		);
 	}
 }
