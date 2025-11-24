@@ -218,6 +218,7 @@ const FeedReader = () => {
       ),
       enableHiding: false,
       enableSorting: true,
+      filterBy: false,
     },
     {
       id: "date",
@@ -229,6 +230,7 @@ const FeedReader = () => {
         return date.toLocaleDateString();
       },
       enableSorting: true,
+      filterBy: false,
     },
     {
       id: "excerpt",
@@ -240,7 +242,8 @@ const FeedReader = () => {
           <div dangerouslySetInnerHTML={{ __html: item.excerpt.rendered }} />
         );
       },
-      enableSorting: true,
+      enableSorting: false,
+      filterBy: false,
     },
     {
       id: "feed",
@@ -252,6 +255,7 @@ const FeedReader = () => {
         return feedName || <span style={{ color: "#999" }}>—</span>;
       },
       enableSorting: false,
+      filterBy: false,
     },
     {
       id: "author",
@@ -263,6 +267,7 @@ const FeedReader = () => {
         return author || <span style={{ color: "#999" }}>—</span>;
       },
       enableSorting: false,
+      filterBy: false,
     },
   ];
 
