@@ -252,25 +252,6 @@ const FeedReader = () => {
       },
       enableSorting: false,
     },
-    {
-      id: "status",
-      type: "enumeration",
-      label: __("Status", "feeds"),
-      elements: [
-        { value: "read", label: __("Read", "feeds") },
-        { value: "unread", label: __("Unread", "feeds") },
-        { value: "favorite", label: __("Favorites", "feeds") },
-        { value: "all", label: __("All", "feeds") },
-      ],
-      getValue: (item) => (hasLabel(item, "read") ? "read" : "unread"),
-      filterBy: {
-        operators: ["is", "isNot"],
-      },
-      render: ({ item }) => {
-        return hasLabel(item, "read") ? "read" : "unread";
-      },
-      enableSorting: false,
-    },
   ];
 
   // Handle closing the article drawer.

@@ -116,26 +116,17 @@ class Feeds_Scheduler {
 
 	/**
 	 * Prune old feed items
-	 * Runs daily to delete old items that aren't favorited
+	 * Runs daily to delete unfavorited draft posts
 	 */
 	public function prune_old_items() {
-		// Get retention days from settings (default 30 days).
-		$retention_days = apply_filters( 'feeds_retention_days', 30 );
-		$cutoff_date    = strtotime( "-{$retention_days} days" );
-
 		// Get the favorite term ID.
 		$favorite_term = get_term_by( 'slug', 'favorite', 'feeds_label' );
 
-		// Query old, non-favorited items using taxonomy query.
+		// Query draft posts that are not favorited.
 		$query_args = array(
 			'post_type'      => Feeds_Feed_Item_CPT::POST_TYPE,
 			'posts_per_page' => 100, // Process in batches.
-			'post_status'    => 'publish',
-			'date_query'     => array(
-				array(
-					'before' => date( 'Y-m-d', $cutoff_date ),
-				),
-			),
+			'post_status'    => 'draft',
 			'fields'         => 'ids',
 		);
 
@@ -151,15 +142,15 @@ class Feeds_Scheduler {
 			);
 		}
 
-		$old_items = get_posts( $query_args );
+		$draft_items = get_posts( $query_args );
 
-		foreach ( $old_items as $item_id ) {
+		foreach ( $draft_items as $item_id ) {
 			wp_delete_post( $item_id, true );
 		}
 
 		// Log the pruning.
-		if ( ! empty( $old_items ) ) {
-			error_log( sprintf( 'Feeds: Pruned %d old items', count( $old_items ) ) );
+		if ( ! empty( $draft_items ) ) {
+			error_log( sprintf( 'Feeds: Deleted %d unfavorited draft items', count( $draft_items ) ) );
 		}
 	}
 }
