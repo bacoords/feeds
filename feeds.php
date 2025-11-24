@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: Feeds
- * Plugin URI: https://example.com/feeds
+ * Plugin URI: https://www.briancoords.com
  * Description: A self-hosted RSS reader living natively inside the WordPress Admin Dashboard
- * Version: 1.0.0
- * Author: Your Name
- * Author URI: https://example.com
+ * Version: 0.1.0
+ * Author: Brian Coords
+ * Author URI: https://www.briancoords.com
  * License: GPL v2 or later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: feeds
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants.
-define( 'FEEDS_VERSION', '1.0.0' );
+define( 'FEEDS_VERSION', '0.1.0' );
 define( 'FEEDS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'FEEDS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'FEEDS_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
