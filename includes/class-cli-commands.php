@@ -23,6 +23,7 @@ class Feeds_CLI_Commands {
 	public static function register_commands() {
 		WP_CLI::add_command( 'feeds refresh-all', array( 'Feeds_CLI_Commands', 'refresh_all' ) );
 		WP_CLI::add_command( 'feeds delete-all-items', array( 'Feeds_CLI_Commands', 'delete_all_items' ) );
+		WP_CLI::add_command( 'feeds delete-all', array( 'Feeds_CLI_Commands', 'delete_all' ) );
 		WP_CLI::add_command( 'feeds fetch-all', array( 'Feeds_CLI_Commands', 'fetch_all' ) );
 	}
 
@@ -111,6 +112,31 @@ class Feeds_CLI_Commands {
 	}
 
 	/**
+	 * Deletes all feed sources and all feed items (complete reset).
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp feeds delete-all
+	 *
+	 * @when after_wp_load
+	 */
+	public function delete_all( $args, $assoc_args ) {
+		WP_CLI::confirm( 'Are you sure you want to delete ALL feeds and feed items? This cannot be undone.' );
+
+		// Step 1: Delete all feed items.
+		WP_CLI::line( 'Deleting all feed items...' );
+		$deleted_items = $this->delete_all_feed_items();
+		WP_CLI::success( sprintf( 'Deleted %d feed items.', $deleted_items ) );
+
+		// Step 2: Delete all feed sources.
+		WP_CLI::line( 'Deleting all feed sources...' );
+		$deleted_sources = $this->delete_all_feed_sources();
+		WP_CLI::success( sprintf( 'Deleted %d feed sources.', $deleted_sources ) );
+
+		WP_CLI::success( 'All feeds and feed items have been deleted.' );
+	}
+
+	/**
 	 * Fetches all feeds without deleting existing items.
 	 *
 	 * ## EXAMPLES
@@ -139,6 +165,37 @@ class Feeds_CLI_Commands {
 			$wpdb->prepare(
 				"SELECT ID FROM {$wpdb->posts} WHERE post_type = %s",
 				Feeds_Feed_Item_CPT::POST_TYPE
+			)
+		);
+
+		if ( empty( $post_ids ) ) {
+			return 0;
+		}
+
+		$deleted = 0;
+
+		foreach ( $post_ids as $post_id ) {
+			if ( wp_delete_post( $post_id, true ) ) {
+				$deleted++;
+			}
+		}
+
+		return $deleted;
+	}
+
+	/**
+	 * Helper function to delete all feed sources
+	 *
+	 * @return int Number of sources deleted.
+	 */
+	private function delete_all_feed_sources() {
+		global $wpdb;
+
+		// Get all feed source IDs.
+		$post_ids = $wpdb->get_col(
+			$wpdb->prepare(
+				"SELECT ID FROM {$wpdb->posts} WHERE post_type = %s",
+				Feeds_Feed_Source_CPT::POST_TYPE
 			)
 		);
 
