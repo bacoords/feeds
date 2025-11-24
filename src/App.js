@@ -1,14 +1,16 @@
 /**
  * Main App Component
- * Handles routing between FeedReader and FeedManager views
+ * Handles routing between FeedReader, Favorites, and FeedManager views
  */
 import { TabPanel } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
 import FeedReader from './views/FeedReader';
+import Favorites from './views/Favorites';
 import FeedManager from './views/FeedManager';
 
 const TABS = {
 	READER: 'reader',
+	FAVORITES: 'favorites',
 	MANAGER: 'manager',
 };
 
@@ -17,6 +19,11 @@ const App = () => {
 		{
 			name: TABS.READER,
 			title: __( 'Reader', 'feeds' ),
+			className: 'feeds-tab',
+		},
+		{
+			name: TABS.FAVORITES,
+			title: __( 'Favorites', 'feeds' ),
 			className: 'feeds-tab',
 		},
 		{
@@ -30,6 +37,8 @@ const App = () => {
 		switch ( tabName ) {
 			case TABS.READER:
 				return <FeedReader />;
+			case TABS.FAVORITES:
+				return <Favorites />;
 			case TABS.MANAGER:
 				return <FeedManager />;
 			default:

@@ -24,7 +24,6 @@ class Feeds_CLI_Commands {
 		WP_CLI::add_command( 'feeds refresh-all', array( 'Feeds_CLI_Commands', 'refresh_all' ) );
 		WP_CLI::add_command( 'feeds delete-all-items', array( 'Feeds_CLI_Commands', 'delete_all_items' ) );
 		WP_CLI::add_command( 'feeds fetch-all', array( 'Feeds_CLI_Commands', 'fetch_all' ) );
-		WP_CLI::add_command( 'feeds create-labels', array( 'Feeds_CLI_Commands', 'create_labels' ) );
 	}
 
 	/**
@@ -125,32 +124,6 @@ class Feeds_CLI_Commands {
 		$fetcher = Feeds_RSS_Fetcher::get_instance();
 		$fetcher->fetch_all_feeds();
 		WP_CLI::success( 'All feeds fetched successfully.' );
-	}
-
-	/**
-	 * Creates the default label terms (favorite and read).
-	 *
-	 * ## EXAMPLES
-	 *
-	 *     wp feeds create-labels
-	 *
-	 * @when after_wp_load
-	 */
-	public function create_labels( $args, $assoc_args ) {
-		WP_CLI::line( 'Creating default label terms...' );
-		Feeds_Label_Taxonomy::create_default_terms();
-
-		// Verify they were created.
-		$favorite = get_term_by( 'slug', 'favorite', 'feeds_label' );
-		$read     = get_term_by( 'slug', 'read', 'feeds_label' );
-
-		if ( $favorite && $read ) {
-			WP_CLI::success( 'Label terms created successfully:' );
-			WP_CLI::line( sprintf( '  - Favorite (ID: %d)', $favorite->term_id ) );
-			WP_CLI::line( sprintf( '  - Read (ID: %d)', $read->term_id ) );
-		} else {
-			WP_CLI::error( 'Failed to create label terms. Check that the feeds_label taxonomy is registered.' );
-		}
 	}
 
 	/**

@@ -64,9 +64,6 @@ class Feeds_Plugin {
 		require_once FEEDS_PLUGIN_DIR . 'includes/CPT/class-feed-source-cpt.php';
 		require_once FEEDS_PLUGIN_DIR . 'includes/CPT/class-feed-item-cpt.php';
 
-		// Taxonomy classes.
-		require_once FEEDS_PLUGIN_DIR . 'includes/class-feeds-label-taxonomy.php';
-
 		// Core classes.
 		require_once FEEDS_PLUGIN_DIR . 'includes/class-rss-fetcher.php';
 		require_once FEEDS_PLUGIN_DIR . 'includes/class-scheduler.php';
@@ -88,9 +85,6 @@ class Feeds_Plugin {
 		// Initialize CPTs.
 		Feeds_Feed_Source_CPT::get_instance();
 		Feeds_Feed_Item_CPT::get_instance();
-
-		// Initialize taxonomies.
-		Feeds_Label_Taxonomy::get_instance();
 
 		// Initialize core services.
 		Feeds_RSS_Fetcher::get_instance();
@@ -151,16 +145,9 @@ function feeds_activate() {
 	// Load dependencies first.
 	require_once FEEDS_PLUGIN_DIR . 'includes/CPT/class-feed-source-cpt.php';
 	require_once FEEDS_PLUGIN_DIR . 'includes/CPT/class-feed-item-cpt.php';
-	require_once FEEDS_PLUGIN_DIR . 'includes/class-feeds-label-taxonomy.php';
 
-	// Register the CPT first (required for taxonomy registration).
+	// Register the CPT.
 	Feeds_Feed_Item_CPT::get_instance()->register_post_type();
-
-	// Register the taxonomy so terms can be created.
-	Feeds_Label_Taxonomy::get_instance()->register_taxonomy();
-
-	// Create default label terms.
-	Feeds_Label_Taxonomy::create_default_terms();
 
 	// Flush rewrite rules.
 	flush_rewrite_rules();

@@ -47,6 +47,7 @@ class Feeds_Feed_Item_CPT {
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'init', array( $this, 'register_meta_fields' ) );
 		add_action( 'init', array( $this, 'register_taxonomy' ) );
+		add_filter( 'rest_feeds_item_query', array( $this, 'filter_rest_query_by_meta' ), 10, 2 );
 	}
 
 	/**
@@ -193,6 +194,58 @@ class Feeds_Feed_Item_CPT {
 				},
 			)
 		);
+
+		// Favorite.
+		register_post_meta(
+			self::POST_TYPE,
+			'_feeds_item_is_favorite',
+			array(
+				'type'          => 'boolean',
+				'description'   => __( 'Whether an item is favorited or not', 'feeds' ),
+				'single'        => true,
+				'show_in_rest'  => true,
+				'auth_callback' => function() {
+					return current_user_can( 'edit_posts' );
+				},
+			)
+		);
+	}
+
+	/**
+	 * Filter REST API query by custom meta parameters
+	 *
+	 * @param array           $args    Query args.
+	 * @param WP_REST_Request $request REST request.
+	 * @return array Modified query args.
+	 */
+	public function filter_rest_query_by_meta( $args, $request ) {
+		// Handle is_read parameter.
+		if ( isset( $request['is_read'] ) ) {
+			if ( ! isset( $args['meta_query'] ) ) {
+				$args['meta_query'] = array();
+			}
+
+			$args['meta_query'][] = array(
+				'key'     => '_feeds_item_is_read',
+				'value'   => rest_sanitize_boolean( $request['is_read'] ) ? '1' : '0',
+				'compare' => '=',
+			);
+		}
+
+		// Handle is_favorite parameter.
+		if ( isset( $request['is_favorite'] ) ) {
+			if ( ! isset( $args['meta_query'] ) ) {
+				$args['meta_query'] = array();
+			}
+
+			$args['meta_query'][] = array(
+				'key'     => '_feeds_item_is_favorite',
+				'value'   => rest_sanitize_boolean( $request['is_favorite'] ) ? '1' : '0',
+				'compare' => '=',
+			);
+		}
+
+		return $args;
 	}
 
 	/**

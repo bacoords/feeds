@@ -1,11 +1,9 @@
 /**
- * Feed Reader View
- * Main reading interface using DataViews
+ * Favorites View
+ * Shows only favorited feed items
  */
 import { useState, useEffect } from "@wordpress/element";
 import { useEntityRecords } from "@wordpress/core-data";
-import { useDispatch } from "@wordpress/data";
-import { store as coreStore } from "@wordpress/core-data";
 import { DataViews } from "@wordpress/dataviews/wp";
 import { Spinner } from "@wordpress/components";
 import apiFetch from "@wordpress/api-fetch";
@@ -18,7 +16,7 @@ import {
   getActions,
 } from "../utils/feedItemUtils";
 
-const FeedReader = () => {
+const Favorites = () => {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [feedItems, setFeedItems] = useState([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
@@ -38,35 +36,10 @@ const FeedReader = () => {
     descriptionField: "excerpt",
   });
 
-  // Fetch feed items manually with REST API.
+  // Fetch favorited feed items.
   useEffect(() => {
     const fetchFeedItems = async () => {
       setIsLoadingItems(true);
-
-      const filters = {};
-      view.filters.forEach((filter) => {
-        if (
-          filter.field === "status" &&
-          filter.operator === "is" &&
-          filter.value === "read"
-        ) {
-          filters.is_read = true;
-        }
-        if (
-          filter.field === "status" &&
-          filter.operator === "is" &&
-          filter.value === "unread"
-        ) {
-          filters.is_read = false;
-        }
-        if (
-          filter.field === "status" &&
-          filter.operator === "is" &&
-          filter.value === "favorite"
-        ) {
-          filters.is_favorite = true;
-        }
-      });
 
       const queryParams = new URLSearchParams({
         per_page: view.perPage,
@@ -74,8 +47,8 @@ const FeedReader = () => {
         orderby: view.sort.field,
         order: view.sort.direction,
         search: view.search,
-        status: "publish",
-        ...filters,
+        status: "any",
+        is_favorite: true,
       });
 
       try {
@@ -107,17 +80,33 @@ const FeedReader = () => {
 
   // Wrapper for markAsRead with current state.
   const markAsReadCallback = (itemId, isRead) => {
-    markAsRead(itemId, isRead, setFeedItems, setSelectedArticle, selectedArticle);
+    markAsRead(
+      itemId,
+      isRead,
+      setFeedItems,
+      setSelectedArticle,
+      selectedArticle
+    );
   };
 
   // Wrapper for toggleFavorite with current dependencies.
   const toggleFavoriteCallback = (itemId, currentItem) => {
-    toggleFavorite(itemId, currentItem, setFeedItems, setSelectedArticle, selectedArticle);
+    toggleFavorite(
+      itemId,
+      currentItem,
+      setFeedItems,
+      setSelectedArticle,
+      selectedArticle
+    );
   };
 
   // Get fields and actions.
   const fields = getFields(feedSources);
-  const actions = getActions(setSelectedArticle, markAsReadCallback, toggleFavoriteCallback);
+  const actions = getActions(
+    setSelectedArticle,
+    markAsReadCallback,
+    toggleFavoriteCallback
+  );
 
   // Handle closing the article drawer.
   const handleCloseArticle = () => {
@@ -168,4 +157,4 @@ const FeedReader = () => {
   );
 };
 
-export default FeedReader;
+export default Favorites;

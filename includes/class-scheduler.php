@@ -119,28 +119,25 @@ class Feeds_Scheduler {
 	 * Runs daily to delete unfavorited draft posts
 	 */
 	public function prune_old_items() {
-		// Get the favorite term ID.
-		$favorite_term = get_term_by( 'slug', 'favorite', 'feeds_label' );
-
 		// Query draft posts that are not favorited.
 		$query_args = array(
 			'post_type'      => Feeds_Feed_Item_CPT::POST_TYPE,
 			'posts_per_page' => 100, // Process in batches.
 			'post_status'    => 'draft',
 			'fields'         => 'ids',
-		);
-
-		// Exclude items with favorite label.
-		if ( $favorite_term ) {
-			$query_args['tax_query'] = array(
+			'meta_query'     => array(
+				'relation' => 'OR',
 				array(
-					'taxonomy' => 'feeds_label',
-					'field'    => 'term_id',
-					'terms'    => $favorite_term->term_id,
-					'operator' => 'NOT IN',
+					'key'     => '_feeds_item_is_favorite',
+					'compare' => 'NOT EXISTS',
 				),
-			);
-		}
+				array(
+					'key'     => '_feeds_item_is_favorite',
+					'value'   => '1',
+					'compare' => '!=',
+				),
+			),
+		);
 
 		$draft_items = get_posts( $query_args );
 
