@@ -2,7 +2,7 @@
  * Feed Manager View
  * Manage feed sources using DataViews
  */
-import { useState } from "@wordpress/element";
+import { useState, useMemo } from "@wordpress/element";
 import { useEntityRecords } from "@wordpress/core-data";
 import { useDispatch } from "@wordpress/data";
 import { store as coreStore } from "@wordpress/core-data";
@@ -33,37 +33,40 @@ const FeedManager = () => {
     descriptionField: "url",
   });
 
+  // Memoize query parameters.
+  const queryArgs = useMemo(() => {
+    const args = {
+      per_page: view.perPage,
+      page: view.page,
+      orderby: view.sort.field,
+      order: view.sort.direction,
+      search: view.search,
+      status: "publish",
+    };
+
+    // Apply status filter if it exists.
+    const statusFilter = view.filters.find((filter) => filter.field === "status");
+    if (statusFilter && statusFilter.value) {
+      args.meta_key = "_feeds_fetch_status";
+      args.meta_value = statusFilter.value;
+    }
+
+    return args;
+  }, [view.perPage, view.page, view.sort.field, view.sort.direction, view.search, view.filters]);
+
   // Fetch feed sources.
   const {
     records: feedSources,
     isResolving: isLoading,
     totalItems,
-  } = useEntityRecords("postType", "feeds_source", {
-    per_page: view.perPage,
-    page: view.page,
-    orderby: view.sort.field,
-    order: view.sort.direction,
-    search: view.search,
-    status: "publish",
-  });
+  } = useEntityRecords("postType", "feeds_source", queryArgs);
 
   // Get datastore dispatch functions.
   const { deleteEntityRecord, invalidateResolution } = useDispatch(coreStore);
 
   // Refresh feed sources list.
   const refreshFeedSources = () => {
-    invalidateResolution("getEntityRecords", [
-      "postType",
-      "feeds_source",
-      {
-        per_page: view.perPage,
-        page: view.page,
-        orderby: view.sort.field,
-        order: view.sort.direction,
-        search: view.search,
-        status: "publish",
-      },
-    ]);
+    invalidateResolution("getEntityRecords", ["postType", "feeds_source", queryArgs]);
   };
 
   // Refresh a feed.
@@ -132,7 +135,7 @@ const FeedManager = () => {
     },
     {
       id: "status",
-      type: "text",
+      type: "enumeration",
       label: __("Status", "feeds"),
       getValue: (item) => item.meta._feeds_fetch_status || "unknown",
       render: ({ item }) => {
@@ -149,8 +152,11 @@ const FeedManager = () => {
           </span>
         );
       },
+      elements: [
+        { value: "success", label: __("Active", "feeds") },
+        { value: "error", label: __("Error", "feeds") },
+      ],
       enableSorting: false,
-      filterBy: false,
     },
     {
       id: "last_fetched",
