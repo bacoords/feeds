@@ -140,30 +140,38 @@ const FeedReader = () => {
 
   return (
     <div className="feeds-reader-container">
-      <DataViews
-        data={feedItems || []}
-        fields={fields}
-        view={view}
-        onChangeView={setView}
-        actions={actions}
-        paginationInfo={{
-          totalItems: totalItems || 0,
-          totalPages: Math.ceil((totalItems || 0) / view.perPage),
-        }}
-        defaultLayouts={{
-          list: {},
-          table: {},
-        }}
-      />
-
-      {selectedArticle && (
-        <ArticleDrawer
-          article={selectedArticle}
-          onClose={handleCloseArticle}
-          onToggleFavorite={handleToggleFavoriteArticle}
-          isFavorite={hasLabel(selectedArticle, "favorite")}
+      <div className="feeds-reader-list-pane">
+        <DataViews
+          data={feedItems || []}
+          fields={fields}
+          view={view}
+          onChangeView={setView}
+          actions={actions}
+          paginationInfo={{
+            totalItems: totalItems || 0,
+            totalPages: Math.ceil((totalItems || 0) / view.perPage),
+          }}
+          defaultLayouts={{
+            list: {},
+            table: {},
+          }}
         />
-      )}
+      </div>
+
+      <div className={`feeds-reader-article-pane ${selectedArticle ? "has-article" : ""}`}>
+        {selectedArticle ? (
+          <ArticleDrawer
+            article={selectedArticle}
+            onClose={handleCloseArticle}
+            onToggleFavorite={handleToggleFavoriteArticle}
+            isFavorite={hasLabel(selectedArticle, "favorite")}
+          />
+        ) : (
+          <div style={{ textAlign: "center", padding: "40px" }}>
+            Select an article to read
+          </div>
+        )}
+      </div>
     </div>
   );
 };

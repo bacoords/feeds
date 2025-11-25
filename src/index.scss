@@ -37,35 +37,60 @@ body.toplevel_page_feeds{
 	margin-top: 20px;
 }
 
-.feeds-article-drawer {
-	position: fixed;
-	top: 0;
-	right: 0;
-	max-width: 600px;
-	width: 100vw;
-	height: 100vh;
-	background: white;
-	box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
-	z-index: 100000;
-	overflow-y: auto;
-	transform: translateX(100%);
-	transition: transform 0.3s ease-in-out;
+// Split-pane layout for feed reader
+.feeds-reader-container {
+	display: flex;
+	gap: 0;
+	height: calc(100vh - 150px);
+	min-height: 600px;
 }
 
-.feeds-article-drawer.open {
-	transform: translateX(0);
+.feeds-reader-list-pane {
+	flex: 0 0 50%;
+	overflow-y: auto;
+	border-right: 1px solid #ddd;
+}
+
+.feeds-reader-article-pane {
+	flex: 0 0 50%;
+	overflow-y: auto;
+	background: #f9f9f9;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	color: #666;
+}
+
+.feeds-reader-article-pane.has-article {
+	background: white;
+	align-items: flex-start;
+	justify-content: flex-start;
+}
+
+// Article drawer styles (used in article pane)
+.feeds-article-drawer {
+	width: 100%;
+	height: 100%;
+	background: white;
+	overflow-y: auto;
 }
 
 .feeds-article-drawer-header {
 	position: sticky;
 	top: 0;
 	background: white;
-	padding: 20px;
+	padding: 8px 12px;
 	border-bottom: 1px solid #ddd;
 	display: flex;
-	justify-content: space-between;
+	justify-content: flex-end;
 	align-items: center;
 	z-index: 1;
+}
+
+.feeds-article-drawer-actions {
+	display: flex;
+	gap: 4px;
+	align-items: center;
 }
 
 .feeds-article-drawer-content {
@@ -94,4 +119,39 @@ body.toplevel_page_feeds{
 
 .feeds-add-feed-modal {
 	max-width: 500px;
+}
+
+// Mobile responsive styles
+@media (max-width: 782px) {
+	.feeds-reader-container {
+		flex-direction: column;
+		height: auto;
+	}
+
+	.feeds-reader-list-pane {
+		flex: 1 1 auto;
+		border-right: none;
+		border-bottom: 1px solid #ddd;
+	}
+
+	.feeds-reader-article-pane {
+		position: fixed;
+		top: 0;
+		left: 0;
+		right: 0;
+		bottom: 0;
+		z-index: 100000;
+		background: white;
+		transform: translateX(100%);
+		transition: transform 0.3s ease-in-out;
+		flex: none;
+	}
+
+	.feeds-reader-article-pane.has-article {
+		transform: translateX(0);
+	}
+
+	.feeds-reader-article-pane:not(.has-article) {
+		display: none;
+	}
 }

@@ -6,6 +6,7 @@ import { useEffect } from '@wordpress/element';
 import { Button, Icon } from '@wordpress/components';
 import { close, external, starFilled, starEmpty } from '@wordpress/icons';
 import { __ } from '@wordpress/i18n';
+import { decodeEntities } from '@wordpress/html-entities';
 
 const ArticleDrawer = ( { article, onClose, onToggleFavorite, isFavorite } ) => {
 	// Close on ESC key.
@@ -29,35 +30,30 @@ const ArticleDrawer = ( { article, onClose, onToggleFavorite, isFavorite } ) => 
 	const pubDate = article.meta?._feeds_item_pub_date;
 
 	return (
-		<div className="feeds-article-drawer open">
+		<div className="feeds-article-drawer">
 			<div className="feeds-article-drawer-header">
-				<h2>{ __( 'Article', 'feeds' ) }</h2>
-				<div style={ { display: 'flex', gap: '10px' } }>
+				<div className="feeds-article-drawer-actions">
 					<Button
-						variant="secondary"
 						icon={ isFavorite ? starFilled : starEmpty }
 						onClick={ onToggleFavorite }
-					>
-						{ isFavorite
-							? __( 'Unfavorite', 'feeds' )
-							: __( 'Favorite', 'feeds' ) }
-					</Button>
+						label={ isFavorite ? __( 'Unfavorite', 'feeds' ) : __( 'Favorite', 'feeds' ) }
+						showTooltip
+					/>
 					{ permalink && (
 						<Button
-							variant="secondary"
 							icon={ external }
 							href={ permalink }
 							target="_blank"
 							rel="noopener noreferrer"
-						>
-							{ __( 'Open Original', 'feeds' ) }
-						</Button>
+							label={ __( 'Open Original', 'feeds' ) }
+							showTooltip
+						/>
 					) }
 					<Button
-						variant="tertiary"
 						icon={ close }
 						onClick={ onClose }
 						label={ __( 'Close', 'feeds' ) }
+						showTooltip
 					/>
 				</div>
 			</div>
@@ -66,12 +62,12 @@ const ArticleDrawer = ( { article, onClose, onToggleFavorite, isFavorite } ) => 
 				{ thumbnailUrl && (
 					<img
 						src={ thumbnailUrl }
-						alt={ article.title.rendered }
+						alt={ decodeEntities( article.title.rendered ) }
 						style={ { maxWidth: '100%', marginBottom: '20px' } }
 					/>
 				) }
 
-				<h1>{ article.title.rendered }</h1>
+				<h1>{ decodeEntities( article.title.rendered ) }</h1>
 
 				<div className="feeds-article-drawer-meta">
 					{ author && (
