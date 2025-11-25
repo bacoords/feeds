@@ -1,0 +1,63 @@
+name: Build Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build plugin
+        run: npm run build
+
+      - name: Create release directory
+        run: |
+          mkdir -p release/feeds
+
+          # Copy production files
+          cp -r build release/feeds/
+          cp -r includes release/feeds/
+          cp feeds.php release/feeds/
+          cp README.md release/feeds/
+          cp readme.txt release/feeds/
+
+          # Copy license if it exists
+          if [ -f LICENSE ]; then cp LICENSE release/feeds/; fi
+          if [ -f LICENSE.txt ]; then cp LICENSE.txt release/feeds/; fi
+
+      - name: Create zip file
+        run: |
+          cd release
+          zip -r feeds.zip feeds/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: feeds-plugin
+          path: release/feeds.zip
+          retention-days: 30
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release/feeds.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
