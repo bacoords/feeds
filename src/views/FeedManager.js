@@ -195,31 +195,33 @@ const FeedManager = () => {
     },
   ];
 
+  const Header = () => (
+    <div className="feeds-manager-header">
+      <Flex justify="flex-end">
+        <Button
+          variant="primary"
+          icon={plus}
+          onClick={() => setIsAddModalOpen(true)}
+        >
+          {__("Add New Feed", "feeds")}
+        </Button>
+        <Button
+          variant="secondary"
+          icon={upload}
+          onClick={() => setIsImportModalOpen(true)}
+        >
+          {__("Import OPML", "feeds")}
+        </Button>
+      </Flex>
+    </div>
+  );
+
   if (isLoading) {
     return <Spinner />;
   }
 
   return (
     <div className="feeds-manager-container">
-      <div className="feeds-manager-header">
-        <Flex justify="flex-end">
-          <Button
-            variant="primary"
-            icon={plus}
-            onClick={() => setIsAddModalOpen(true)}
-          >
-            {__("Add New Feed", "feeds")}
-          </Button>
-          <Button
-            variant="secondary"
-            icon={upload}
-            onClick={() => setIsImportModalOpen(true)}
-          >
-            {__("Import OPML", "feeds")}
-          </Button>
-        </Flex>
-      </div>
-
       <DataViews
         data={feedSources || []}
         fields={fields}
@@ -230,6 +232,7 @@ const FeedManager = () => {
           totalItems: totalItems,
           totalPages: Math.ceil((totalItems || 0) / view.perPage),
         }}
+        header={<Header />}
         defaultLayouts={{
           table: {},
           list: {},
