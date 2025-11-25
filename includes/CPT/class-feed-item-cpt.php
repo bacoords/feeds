@@ -48,6 +48,7 @@ class Feeds_Feed_Item_CPT {
 		add_action( 'init', array( $this, 'register_meta_fields' ) );
 		add_action( 'init', array( $this, 'register_taxonomy' ) );
 		add_filter( 'rest_feeds_item_query', array( $this, 'filter_rest_query_by_meta' ), 10, 2 );
+		add_filter( 'rest_prepare_feeds_item', array( $this, 'filter_rest_prepare_excerpt' ), 10, 3 );
 	}
 
 	/**
@@ -285,5 +286,43 @@ class Feeds_Feed_Item_CPT {
 		if ( ! empty( $read_posts ) ) {
 			error_log( sprintf( 'Feeds: Marked %d read posts as draft', count( $read_posts ) ) );
 		}
+	}
+
+	/**
+	 * Filter REST API response to clean up excerpt
+	 *
+	 * @param WP_REST_Response $response Response object.
+	 * @param WP_Post          $post     Post object.
+	 * @param WP_REST_Request  $request  Request object.
+	 * @return WP_REST_Response Modified response.
+	 */
+	public function filter_rest_prepare_excerpt( $response, $post, $request ) {
+		$data = $response->get_data();
+
+		// Clean up excerpt if it exists.
+		if ( isset( $data['excerpt']['rendered'] ) ) {
+			$excerpt = $data['excerpt']['rendered'];
+
+			// Strip all HTML tags.
+			$excerpt = wp_strip_all_tags( $excerpt );
+
+			// Limit to 300 characters.
+			$char_limit = apply_filters( 'feeds_excerpt_char_limit', 300 );
+			if ( strlen( $excerpt ) > $char_limit ) {
+				$excerpt = substr( $excerpt, 0, $char_limit );
+				// Try to break at a word boundary.
+				$last_space = strrpos( $excerpt, ' ' );
+				if ( $last_space !== false ) {
+					$excerpt = substr( $excerpt, 0, $last_space );
+				}
+				$excerpt .= '…';
+			}
+
+			// Update the response.
+			$data['excerpt']['rendered'] = $excerpt;
+			$response->set_data( $data );
+		}
+
+		return $response;
 	}
 }

@@ -179,9 +179,7 @@ export const getFields = (feedSources) => [
     label: __("Excerpt", "feeds"),
     getValue: (item) => item.excerpt.rendered,
     render: ({ item }) => {
-      return (
-        <div dangerouslySetInnerHTML={{ __html: item.excerpt.rendered }} />
-      );
+      return <>{decodeEntities(item.excerpt.rendered)}</>;
     },
     enableSorting: false,
     filterBy: false,
@@ -211,7 +209,7 @@ export const getFields = (feedSources) => [
     getValue: (item) => item.meta?._feeds_item_author || "",
     render: ({ item }) => {
       const author = item.meta?._feeds_item_author;
-      return author || <span style={{ color: "#999" }}>—</span>;
+      return decodeEntities(author) || <span style={{ color: "#999" }}>—</span>;
     },
     enableSorting: false,
     filterBy: false,
