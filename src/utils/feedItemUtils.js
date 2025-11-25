@@ -139,7 +139,7 @@ export const getFields = (feedSources) => [
           <span style={{ marginInline: "8px", color: "#666" }}>✓</span>
         )}
         {hasLabel(item, "favorite") && (
-          <span style={{ marginInline: "8px", color: "#e66771" }}>♥</span>
+          <span style={{ marginInline: "8px", color: "#e6c200" }}>★</span>
         )}
       </>
     ),

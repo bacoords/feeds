@@ -10,11 +10,17 @@ body.toplevel_page_feeds{
 	#wpcontent{
 		padding-left: 0;
 	}
+	#wpbody-content{
+		padding-bottom: 0;
+	}
+	#wpfooter {
+		display: none;
+	}
 }
 
 .feeds-app-container {
 	max-width: 100%;
-	margin: 20px 0;
+	margin: 20px 0 0;
 }
 
 .feeds-app-header {
@@ -46,7 +52,7 @@ body.toplevel_page_feeds{
 .feeds-reader-container {
 	display: flex;
 	gap: 0;
-	height: calc(100vh - 150px);
+	height: calc(100vh - 135px);
 	min-height: 600px;
 }
 
