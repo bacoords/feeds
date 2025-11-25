@@ -13,6 +13,7 @@ import { plus, trash, update, upload } from "@wordpress/icons";
 import apiFetch from "@wordpress/api-fetch";
 import AddFeedModal from "../components/AddFeedModal";
 import ImportOPMLModal from "../components/ImportOPMLModal";
+import { decodeEntities } from "@wordpress/html-entities";
 
 const FeedManager = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -107,7 +108,7 @@ const FeedManager = () => {
       type: "text",
       label: __("Feed Name", "feeds"),
       getValue: (item) => item.title.rendered,
-      render: ({ item }) => <>{item.title.rendered}</>,
+      render: ({ item }) => <>{decodeEntities(item.title.rendered)}</>,
       enableHiding: false,
       enableSorting: true,
       filterBy: false,

@@ -4,6 +4,7 @@
 import { __ } from "@wordpress/i18n";
 import { starEmpty } from "@wordpress/icons";
 import apiFetch from "@wordpress/api-fetch";
+import { decodeEntities } from "@wordpress/html-entities";
 
 /**
  * Helper to check if item has a label
@@ -147,7 +148,7 @@ export const getFields = (feedSources) => [
     getValue: (item) => item.title.rendered,
     render: ({ item }) => (
       <>
-        <>{item.title.rendered}</>
+        <>{decodeEntities(item.title.rendered)}</>
         {hasLabel(item, "read") && (
           <span style={{ marginInline: "8px", color: "#666" }}>✓</span>
         )}
@@ -196,7 +197,9 @@ export const getFields = (feedSources) => [
         item.meta?._feeds_item_source_id,
         feedSources
       );
-      return feedName || <span style={{ color: "#999" }}>—</span>;
+      return (
+        decodeEntities(feedName) || <span style={{ color: "#999" }}>—</span>
+      );
     },
     enableSorting: false,
     filterBy: false,
