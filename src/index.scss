@@ -7,6 +7,9 @@ body.toplevel_page_feeds{
 	#wpwrap{
 		background-color: #fff;
 	}
+	#wpcontent{
+		padding-left: 0;
+	}
 }
 
 .feeds-app-container {
@@ -18,8 +21,9 @@ body.toplevel_page_feeds{
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
-	margin-bottom: 20px;
-	padding-bottom: 20px;
+	// margin-bottom: 1rem;
+	padding-bottom: 1rem;
+	padding-inline: 1rem;
 	border-bottom: 1px solid #ddd;
 }
 
@@ -33,8 +37,20 @@ body.toplevel_page_feeds{
 	gap: 10px;
 }
 
+
+.components-tab-panel__tabs{
+	border-bottom: 1px solid #ddd;
+}
+
+.feeds-manager-container {
+	margin-top: 1rem;
+}
+.feeds-manager-header{
+	padding-inline: 1rem;
+}
+
 .feeds-app-content {
-	margin-top: 20px;
+	// margin-top: 20px;
 }
 
 // Split-pane layout for feed reader
