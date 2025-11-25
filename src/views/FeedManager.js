@@ -27,24 +27,43 @@ const FeedManager = () => {
     },
     search: "",
     filters: [],
-    fields: ["title", "url", "status"],
+    fields: ["status"],
+    titleField: "title",
+    descriptionField: "url",
   });
 
   // Fetch feed sources.
-  const { records: feedSources, isResolving: isLoading } = useEntityRecords(
-    "postType",
-    "feeds_source",
-    {
-      per_page: -1,
-      orderby: view.sort.field,
-      order: view.sort.direction,
-      search: view.search,
-      status: "publish",
-    }
-  );
+  const {
+    records: feedSources,
+    isResolving: isLoading,
+    totalItems,
+  } = useEntityRecords("postType", "feeds_source", {
+    per_page: view.perPage,
+    page: view.page,
+    orderby: view.sort.field,
+    order: view.sort.direction,
+    search: view.search,
+    status: "publish",
+  });
 
   // Get datastore dispatch functions.
-  const { deleteEntityRecord } = useDispatch(coreStore);
+  const { deleteEntityRecord, invalidateResolution } = useDispatch(coreStore);
+
+  // Refresh feed sources list.
+  const refreshFeedSources = () => {
+    invalidateResolution("getEntityRecords", [
+      "postType",
+      "feeds_source",
+      {
+        per_page: view.perPage,
+        page: view.page,
+        orderby: view.sort.field,
+        order: view.sort.direction,
+        search: view.search,
+        status: "publish",
+      },
+    ]);
+  };
 
   // Refresh a feed.
   const refreshFeed = async (sourceId) => {
@@ -68,7 +87,13 @@ const FeedManager = () => {
     }
 
     try {
-      await deleteEntityRecord("postType", "feeds_source", sourceId, {}, { throwOnError: true });
+      await deleteEntityRecord(
+        "postType",
+        "feeds_source",
+        sourceId,
+        {},
+        { throwOnError: true }
+      );
     } catch (error) {
       console.error("Error deleting feed:", error);
       alert(__("Failed to delete feed", "feeds"));
@@ -85,6 +110,7 @@ const FeedManager = () => {
       render: ({ item }) => <strong>{item.title.rendered}</strong>,
       enableHiding: false,
       enableSorting: true,
+      filterBy: false,
     },
     {
       id: "url",
@@ -101,6 +127,7 @@ const FeedManager = () => {
         </a>
       ),
       enableSorting: false,
+      filterBy: false,
     },
     {
       id: "status",
@@ -122,6 +149,7 @@ const FeedManager = () => {
         );
       },
       enableSorting: false,
+      filterBy: false,
     },
     {
       id: "last_fetched",
@@ -137,6 +165,7 @@ const FeedManager = () => {
         return date.toLocaleString();
       },
       enableSorting: false,
+      filterBy: false,
     },
   ];
 
@@ -195,11 +224,12 @@ const FeedManager = () => {
         onChangeView={setView}
         actions={actions}
         paginationInfo={{
-          totalItems: feedSources?.length || 0,
-          totalPages: Math.ceil((feedSources?.length || 0) / view.perPage),
+          totalItems: totalItems,
+          totalPages: Math.ceil((totalItems || 0) / view.perPage),
         }}
         defaultLayouts={{
           table: {},
+          list: {},
         }}
       />
 
@@ -208,7 +238,10 @@ const FeedManager = () => {
       )}
 
       {isImportModalOpen && (
-        <ImportOPMLModal onClose={() => setIsImportModalOpen(false)} />
+        <ImportOPMLModal
+          onClose={() => setIsImportModalOpen(false)}
+          onImportComplete={refreshFeedSources}
+        />
       )}
     </div>
   );
