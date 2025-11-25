@@ -46,7 +46,6 @@ class Feeds_Feed_Source_CPT {
 	private function __construct() {
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'init', array( $this, 'register_meta_fields' ) );
-		add_filter( 'rest_feeds_source_query', array( $this, 'filter_rest_query_by_meta' ), 10, 2 );
 	}
 
 	/**
@@ -124,21 +123,6 @@ class Feeds_Feed_Source_CPT {
 			)
 		);
 
-		// Fetch Status.
-		register_post_meta(
-			self::POST_TYPE,
-			'_feeds_fetch_status',
-			array(
-				'type'          => 'string',
-				'description'   => __( 'Status of the last fetch (success or error)', 'feeds' ),
-				'single'        => true,
-				'show_in_rest'  => true,
-				'auth_callback' => function() {
-					return current_user_can( 'edit_posts' );
-				},
-			)
-		);
-
 		// Error Message.
 		register_post_meta(
 			self::POST_TYPE,
@@ -153,29 +137,5 @@ class Feeds_Feed_Source_CPT {
 				},
 			)
 		);
-	}
-
-	/**
-	 * Filter REST API query to support meta_key and meta_value parameters
-	 *
-	 * @param array           $args    Query args.
-	 * @param WP_REST_Request $request REST request.
-	 * @return array Modified query args.
-	 */
-	public function filter_rest_query_by_meta( $args, $request ) {
-		// Handle meta_key and meta_value parameters for filtering.
-		if ( isset( $request['meta_key'] ) && isset( $request['meta_value'] ) ) {
-			if ( ! isset( $args['meta_query'] ) ) {
-				$args['meta_query'] = array();
-			}
-
-			$args['meta_query'][] = array(
-				'key'     => sanitize_text_field( $request['meta_key'] ),
-				'value'   => sanitize_text_field( $request['meta_value'] ),
-				'compare' => '=',
-			);
-		}
-
-		return $args;
 	}
 }

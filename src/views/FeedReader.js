@@ -43,28 +43,19 @@ const FeedReader = () => {
     const fetchFeedItems = async () => {
       setIsLoadingItems(true);
 
-      const filters = {};
+      // Default to showing unread items (status: publish).
+      let statusFilter = "publish";
+
+      // Check if there are any status filters applied.
       view.filters.forEach((filter) => {
-        if (
-          filter.field === "status" &&
-          filter.operator === "is" &&
-          filter.value === "read"
-        ) {
-          filters.is_read = true;
-        }
-        if (
-          filter.field === "status" &&
-          filter.operator === "is" &&
-          filter.value === "unread"
-        ) {
-          filters.is_read = false;
-        }
-        if (
-          filter.field === "status" &&
-          filter.operator === "is" &&
-          filter.value === "favorite"
-        ) {
-          filters.is_favorite = true;
+        if (filter.field === "status" && filter.operator === "is") {
+          if (filter.value === "read") {
+            statusFilter = "read";
+          } else if (filter.value === "favorite") {
+            statusFilter = "favorite";
+          } else if (filter.value === "unread") {
+            statusFilter = "publish";
+          }
         }
       });
 
@@ -74,8 +65,7 @@ const FeedReader = () => {
         orderby: view.sort.field,
         order: view.sort.direction,
         search: view.search,
-        status: "publish",
-        ...filters,
+        status: statusFilter,
       });
 
       try {

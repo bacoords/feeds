@@ -45,9 +45,9 @@ class Feeds_Feed_Item_CPT {
 	 */
 	private function __construct() {
 		add_action( 'init', array( $this, 'register_post_type' ) );
+		add_action( 'init', array( $this, 'register_post_statuses' ) );
 		add_action( 'init', array( $this, 'register_meta_fields' ) );
 		add_action( 'init', array( $this, 'register_taxonomy' ) );
-		add_filter( 'rest_feeds_item_query', array( $this, 'filter_rest_query_by_meta' ), 10, 2 );
 		add_filter( 'rest_prepare_feeds_item', array( $this, 'filter_rest_prepare_excerpt' ), 10, 3 );
 	}
 
@@ -75,6 +75,37 @@ class Feeds_Feed_Item_CPT {
 		);
 
 		register_post_type( self::POST_TYPE, $args );
+	}
+
+	/**
+	 * Register custom post statuses
+	 */
+	public function register_post_statuses() {
+		// Read status.
+		register_post_status(
+			'read',
+			array(
+				'label'                     => __( 'Read', 'feeds' ),
+				'public'                    => false,
+				'exclude_from_search'       => true,
+				'show_in_admin_all_list'    => false,
+				'show_in_admin_status_list' => false,
+				'label_count'               => _n_noop( 'Read <span class="count">(%s)</span>', 'Read <span class="count">(%s)</span>', 'feeds' ),
+			)
+		);
+
+		// Favorite status.
+		register_post_status(
+			'favorite',
+			array(
+				'label'                     => __( 'Favorite', 'feeds' ),
+				'public'                    => false,
+				'exclude_from_search'       => true,
+				'show_in_admin_all_list'    => false,
+				'show_in_admin_status_list' => false,
+				'label_count'               => _n_noop( 'Favorite <span class="count">(%s)</span>', 'Favorite <span class="count">(%s)</span>', 'feeds' ),
+			)
+		);
 	}
 
 	/**
@@ -180,112 +211,14 @@ class Feeds_Feed_Item_CPT {
 				},
 			)
 		);
-
-		// Read.
-		register_post_meta(
-			self::POST_TYPE,
-			'_feeds_item_is_read',
-			array(
-				'type'          => 'boolean',
-				'description'   => __( 'Whether an item is read or not', 'feeds' ),
-				'single'        => true,
-				'show_in_rest'  => true,
-				'auth_callback' => function() {
-					return current_user_can( 'edit_posts' );
-				},
-			)
-		);
-
-		// Favorite.
-		register_post_meta(
-			self::POST_TYPE,
-			'_feeds_item_is_favorite',
-			array(
-				'type'          => 'boolean',
-				'description'   => __( 'Whether an item is favorited or not', 'feeds' ),
-				'single'        => true,
-				'show_in_rest'  => true,
-				'auth_callback' => function() {
-					return current_user_can( 'edit_posts' );
-				},
-			)
-		);
 	}
 
 	/**
-	 * Filter REST API query by custom meta parameters
-	 *
-	 * @param array           $args    Query args.
-	 * @param WP_REST_Request $request REST request.
-	 * @return array Modified query args.
-	 */
-	public function filter_rest_query_by_meta( $args, $request ) {
-		// Handle is_read parameter.
-		if ( isset( $request['is_read'] ) ) {
-			if ( ! isset( $args['meta_query'] ) ) {
-				$args['meta_query'] = array();
-			}
-
-			$args['meta_query'][] = array(
-				'key'     => '_feeds_item_is_read',
-				'value'   => rest_sanitize_boolean( $request['is_read'] ) ? '1' : '0',
-				'compare' => '=',
-			);
-		}
-
-		// Handle is_favorite parameter.
-		if ( isset( $request['is_favorite'] ) ) {
-			if ( ! isset( $args['meta_query'] ) ) {
-				$args['meta_query'] = array();
-			}
-
-			$args['meta_query'][] = array(
-				'key'     => '_feeds_item_is_favorite',
-				'value'   => rest_sanitize_boolean( $request['is_favorite'] ) ? '1' : '0',
-				'compare' => '=',
-			);
-		}
-
-		return $args;
-	}
-
-	/**
-	 * Mark all read posts as draft
-	 * This function finds all posts with the 'read' meta key set to true
-	 * and changes their post_status to 'draft'
+	 * Legacy function - no longer needed with post_status architecture
+	 * Kept for backward compatibility but does nothing
 	 */
 	public static function mark_read_posts_as_draft() {
-		// Query for all published posts with _feeds_item_is_read = true.
-		$args = array(
-			'post_type'      => self::POST_TYPE,
-			'post_status'    => 'publish',
-			'posts_per_page' => -1,
-			'fields'         => 'ids',
-			'meta_query'     => array(
-				array(
-					'key'     => '_feeds_item_is_read',
-					'value'   => '1',
-					'compare' => '=',
-				),
-			),
-		);
-
-		$read_posts = get_posts( $args );
-
-		// Update each post to draft status.
-		foreach ( $read_posts as $post_id ) {
-			wp_update_post(
-				array(
-					'ID'          => $post_id,
-					'post_status' => 'draft',
-				)
-			);
-		}
-
-		// Log the action if any posts were updated.
-		if ( ! empty( $read_posts ) ) {
-			error_log( sprintf( 'Feeds: Marked %d read posts as draft', count( $read_posts ) ) );
-		}
+		// No-op: read items now use 'read' post_status directly
 	}
 
 	/**

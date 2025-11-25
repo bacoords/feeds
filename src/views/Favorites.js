@@ -47,8 +47,7 @@ const Favorites = () => {
         orderby: view.sort.field,
         order: view.sort.direction,
         search: view.search,
-        status: "any",
-        is_favorite: true,
+        status: "favorite",
       });
 
       try {

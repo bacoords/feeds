@@ -35,24 +35,36 @@ const FeedManager = () => {
 
   // Memoize query parameters.
   const queryArgs = useMemo(() => {
+    // Default to publish status (success feeds).
+    let statusValue = "any";
+
+    // Apply status filter if it exists.
+    const statusFilter = view.filters.find(
+      (filter) => filter.field === "status"
+    );
+    if (statusFilter && statusFilter.value) {
+      // Map filter values to post_status: success→publish, error→pending.
+      statusValue = statusFilter.value === "success" ? "publish" : "pending";
+    }
+
     const args = {
       per_page: view.perPage,
       page: view.page,
       orderby: view.sort.field,
       order: view.sort.direction,
       search: view.search,
-      status: "publish",
+      status: statusValue,
     };
 
-    // Apply status filter if it exists.
-    const statusFilter = view.filters.find((filter) => filter.field === "status");
-    if (statusFilter && statusFilter.value) {
-      args.meta_key = "_feeds_fetch_status";
-      args.meta_value = statusFilter.value;
-    }
-
     return args;
-  }, [view.perPage, view.page, view.sort.field, view.sort.direction, view.search, view.filters]);
+  }, [
+    view.perPage,
+    view.page,
+    view.sort.field,
+    view.sort.direction,
+    view.search,
+    view.filters,
+  ]);
 
   // Fetch feed sources.
   const {
@@ -66,7 +78,11 @@ const FeedManager = () => {
 
   // Refresh feed sources list.
   const refreshFeedSources = () => {
-    invalidateResolution("getEntityRecords", ["postType", "feeds_source", queryArgs]);
+    invalidateResolution("getEntityRecords", [
+      "postType",
+      "feeds_source",
+      queryArgs,
+    ]);
   };
 
   // Refresh a feed.
@@ -137,18 +153,21 @@ const FeedManager = () => {
       id: "status",
       type: "enumeration",
       label: __("Status", "feeds"),
-      getValue: (item) => item.meta._feeds_fetch_status || "unknown",
+      getValue: (item) => {
+        // Map post_status to filter values: publish→success, pending→error.
+        return item.status === "publish"
+          ? "success"
+          : item.status === "pending"
+          ? "error"
+          : "unknown";
+      },
       render: ({ item }) => {
-        const status = item.meta._feeds_fetch_status;
-        const color =
-          status === "success" ? "green" : status === "error" ? "red" : "gray";
+        const isSuccess = item.status === "publish";
+        const isError = item.status === "pending";
+        const color = isSuccess ? "green" : isError ? "red" : "gray";
         return (
           <span style={{ color }}>
-            {status === "success"
-              ? "✓ Active"
-              : status === "error"
-              ? "✗ Error"
-              : "Unknown"}
+            {isSuccess ? "✓ Active" : isError ? "✗ Error" : "Unknown"}
           </span>
         );
       },

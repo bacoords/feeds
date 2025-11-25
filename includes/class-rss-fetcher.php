@@ -113,8 +113,13 @@ class Feeds_RSS_Fetcher {
 		$rss = fetch_feed( $feed_url );
 
 		if ( is_wp_error( $rss ) ) {
-			// Update source with error status.
-			update_post_meta( $source_id, '_feeds_fetch_status', 'error' );
+			// Update source with error status (using pending post_status).
+			wp_update_post(
+				array(
+					'ID'          => $source_id,
+					'post_status' => 'pending',
+				)
+			);
 			update_post_meta( $source_id, '_feeds_error_message', $rss->get_error_message() );
 			update_post_meta( $source_id, '_feeds_last_fetched', time() );
 			return $rss;
@@ -135,8 +140,13 @@ class Feeds_RSS_Fetcher {
 			$this->process_feed_item( $item, $source_id, $source_categories );
 		}
 
-		// Update source with success status.
-		update_post_meta( $source_id, '_feeds_fetch_status', 'success' );
+		// Update source with success status (using publish post_status).
+		wp_update_post(
+			array(
+				'ID'          => $source_id,
+				'post_status' => 'publish',
+			)
+		);
 		update_post_meta( $source_id, '_feeds_error_message', '' );
 		update_post_meta( $source_id, '_feeds_last_fetched', time() );
 

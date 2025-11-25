@@ -10,13 +10,13 @@ import { decodeEntities } from "@wordpress/html-entities";
  * Helper to check if item has a label
  */
 export const hasLabel = (item, labelSlug) => {
-  // Handle 'read' status via meta field.
+  // Handle 'read' status via post_status.
   if (labelSlug === "read") {
-    return item.meta?._feeds_item_is_read === true;
+    return item.status === "read";
   }
-  // Handle 'favorite' status via meta field.
+  // Handle 'favorite' status via post_status.
   if (labelSlug === "favorite") {
-    return item.meta?._feeds_item_is_favorite === true;
+    return item.status === "favorite";
   }
   return false;
 };
@@ -31,16 +31,15 @@ export const markAsRead = async (
   setSelectedArticle,
   selectedArticle
 ) => {
+  const newStatus = isRead ? "read" : "publish";
+
   // Optimistically update local state immediately for instant UI feedback.
   setFeedItems((prevItems) =>
     prevItems.map((item) =>
       item.id === itemId
         ? {
             ...item,
-            meta: {
-              ...item.meta,
-              _feeds_item_is_read: isRead,
-            },
+            status: newStatus,
           }
         : item
     )
@@ -50,10 +49,7 @@ export const markAsRead = async (
   if (selectedArticle?.id === itemId) {
     setSelectedArticle((prev) => ({
       ...prev,
-      meta: {
-        ...prev.meta,
-        _feeds_item_is_read: isRead,
-      },
+      status: newStatus,
     }));
   }
 
@@ -63,9 +59,7 @@ export const markAsRead = async (
       path: `/wp/v2/feed_items/${itemId}`,
       method: "POST",
       data: {
-        meta: {
-          _feeds_item_is_read: isRead,
-        },
+        status: newStatus,
       },
     });
   } catch (error) {
@@ -83,8 +77,8 @@ export const toggleFavorite = async (
   setSelectedArticle,
   selectedArticle
 ) => {
-  const isFavorite = currentItem.meta?._feeds_item_is_favorite === true;
-  const newFavoriteStatus = !isFavorite;
+  const isFavorite = currentItem.status === "favorite";
+  const newStatus = isFavorite ? "publish" : "favorite";
 
   // Optimistically update local state immediately for instant UI feedback.
   setFeedItems((prevItems) =>
@@ -92,10 +86,7 @@ export const toggleFavorite = async (
       item.id === itemId
         ? {
             ...item,
-            meta: {
-              ...item.meta,
-              _feeds_item_is_favorite: newFavoriteStatus,
-            },
+            status: newStatus,
           }
         : item
     )
@@ -105,10 +96,7 @@ export const toggleFavorite = async (
   if (selectedArticle?.id === itemId) {
     setSelectedArticle((prev) => ({
       ...prev,
-      meta: {
-        ...prev.meta,
-        _feeds_item_is_favorite: newFavoriteStatus,
-      },
+      status: newStatus,
     }));
   }
 
@@ -118,9 +106,7 @@ export const toggleFavorite = async (
       path: `/wp/v2/feed_items/${itemId}`,
       method: "POST",
       data: {
-        meta: {
-          _feeds_item_is_favorite: newFavoriteStatus,
-        },
+        status: newStatus,
       },
     });
   } catch (error) {
