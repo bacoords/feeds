@@ -3,7 +3,7 @@
  * Plugin Name: Feeds
  * Plugin URI: https://www.briancoords.com
  * Description: A self-hosted RSS reader living natively inside the WordPress Admin Dashboard
- * Version: 0.2.0
+ * Version: 0.2.1
  * Author: Brian Coords
  * Author URI: https://www.briancoords.com
  * License: GPL v2 or later
@@ -20,7 +20,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Define plugin constants.
-define( 'FEEDS_VERSION', '0.2.0' );
+define( 'FEEDS_VERSION', '0.2.1' );
 define( 'FEEDS_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'FEEDS_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'FEEDS_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
