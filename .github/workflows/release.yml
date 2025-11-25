@@ -28,6 +28,13 @@ jobs:
       - name: Build plugin
         run: npm run build
 
+      - name: Verify build output
+        run: |
+          echo "Checking if build directory exists..."
+          ls -la
+          echo "Contents of build directory:"
+          ls -la build/
+
       - name: Create release directory
         run: |
           mkdir -p release/feeds
@@ -42,6 +49,13 @@ jobs:
           # Copy license if it exists
           if [ -f LICENSE ]; then cp LICENSE release/feeds/; fi
           if [ -f LICENSE.txt ]; then cp LICENSE.txt release/feeds/; fi
+
+      - name: Verify release contents
+        run: |
+          echo "Contents of release/feeds directory:"
+          ls -la release/feeds/
+          echo "Contents of release/feeds/build directory:"
+          ls -la release/feeds/build/
 
       - name: Create zip file
         run: |
