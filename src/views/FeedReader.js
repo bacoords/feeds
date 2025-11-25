@@ -112,8 +112,10 @@ const FeedReader = () => {
   // Handle closing the article drawer.
   const handleCloseArticle = () => {
     if (selectedArticle) {
-      // Mark as read when closing.
-      markAsReadCallback(selectedArticle.id, true);
+      // Only mark as read if it's not already a favorite.
+      if (selectedArticle.status !== 'favorite') {
+        markAsReadCallback(selectedArticle.id, true);
+      }
     }
     setSelectedArticle(null);
   };
