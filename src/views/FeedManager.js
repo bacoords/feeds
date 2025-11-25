@@ -107,7 +107,7 @@ const FeedManager = () => {
       type: "text",
       label: __("Feed Name", "feeds"),
       getValue: (item) => item.title.rendered,
-      render: ({ item }) => <strong>{item.title.rendered}</strong>,
+      render: ({ item }) => <>{item.title.rendered}</>,
       enableHiding: false,
       enableSorting: true,
       filterBy: false,
