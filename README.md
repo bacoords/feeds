@@ -4,43 +4,89 @@ A self-hosted RSS reader living natively inside the WordPress Admin Dashboard. I
 
 ## Features
 
-- **Feed Management**: Add, delete, and manage RSS feed subscriptions
-- **Smart Reading Interface**: Modern React-based UI with DataViews
+- **Feed Management**: Add, delete, refresh, and manage RSS feed subscriptions with status monitoring
+- **OPML Import**: Import feed subscriptions from OPML files with automatic category organization
+- **Smart Reading Interface**: Modern React-based split-pane UI with DataViews (table & list views)
 - **Auto-Sync**: Hourly automatic feed fetching
-- **Read/Unread Tracking**: Mark articles as read or unread
-- **Favorites**: Star important articles to exclude them from auto-pruning
-- **Auto-Pruning**: Automatically delete old items (default: 30 days) while preserving favorites
-- **Categories**: Organize feeds with custom categories
-- **Full-Text Reading**: Read articles directly in WordPress with a beautiful drawer interface
+- **Read/Unread Tracking**: Articles automatically marked as read when closed
+- **Favorites**: Star important articles - favorites are preserved when closing articles
+- **Thumbnail Support**: Automatic extraction of article images from multiple sources (media:thumbnail, enclosures, content)
+- **Feed Status Monitoring**: Filter feeds by success/error status to identify problematic sources
 
 ## Development
 
 This project uses `@wordpress/scripts` for the build process.
 
+### Setup
+
+```bash
+npm install
+npm run build
+```
+
+### Build Commands
+
+- `npm run build` - Production build
+- `npm run start` - Development build with watch mode
+
+## Architecture
+
+### Custom Post Types
+
+- **feeds_source**: RSS feed subscriptions with metadata (URL, last fetched timestamp, error messages)
+- **feeds_item**: Individual feed articles with metadata (source ID, permalink, author, thumbnail URL, publication date)
+
+### Post Statuses
+
+The plugin uses custom post statuses for efficient filtering without meta queries:
+
+**Feed Items:**
+- `publish` - Unread articles (default)
+- `read` - Articles marked as read
+- `favorite` - Favorited articles (mutually exclusive with read status)
+
+**Feed Sources:**
+- `publish` - Successfully fetched feeds
+- `pending` - Feeds with fetch errors
+
+### Taxonomies
+
+- **feeds_category**: Organize feeds and items by category (supports OPML import hierarchy) **Note: This is not exposed in the UI yet.**
+
 ## API Endpoints
 
 The plugin exposes the following REST API endpoints:
 
-- `POST /wp-json/feeds/v1/refresh/{id}` - Manually refresh a feed
+- `POST /wp-json/feeds/v1/refresh/{id}` - Manually refresh a single feed source
+- `POST /wp-json/feeds/v1/import-opml` - Import OPML file with feed subscriptions
 
 ## Filters & Hooks
+The plugin provides the following filters for customization:
+- `feeds_excerpt_char_limit` - Filter to change the excerpt character limit (default: 300)
+- `feeds_import_max_age_days` - Filter to change the maximum age of items to import when adding a feed (default: 60 days)
 
-- `feeds_retention_days` - Filter to change the auto-pruning retention period (default: 30 days)
-
-Example:
+Examples:
 ```php
-add_filter( 'feeds_retention_days', function() {
-    return 90; // Keep items for 90 days
+// Increase excerpt length
+add_filter( 'feeds_excerpt_char_limit', function() {
+    return 500;
+} );
+
+// Only import items from the last 14 days
+add_filter( 'feeds_import_max_age_days', function() {
+    return 14;
 } );
 ```
 
-## Background Jobs
+## WP-CLI Development Commands
 
-The plugin uses Action Scheduler to schedule:
+The plugin includes WP-CLI commands for development and testing:
 
-- **Hourly**: Fetch all feeds (`feeds_fetch_all`)
-- **Daily**: Prune old items (`feeds_prune_items`)
-
+* `wp feeds refresh-all` - Delete all feed items and refetch from all feeds
+* `wp feeds delete-all` - Deletes all feed sources and all feed items (complete
+                        reset).
+* `wp feeds delete-all-items` - Deletes all feed items only (without refetching).
+* `wp feeds fetch-all` - Fetch all feeds without deleting
 
 ## License
 
@@ -48,4 +94,4 @@ GPL v2 or later
 
 ## Support
 
-For issues and feature requests, please contact the plugin developer.
+For issues and feature requests, please open an issue on the [GitHub repository](https://github.com/briancoords/feeds).

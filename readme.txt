@@ -16,43 +16,14 @@ Feeds is a powerful, self-hosted RSS reader that brings all your favorite conten
 
 = Key Features =
 
-* **Feed Management** - Add, delete, and manage RSS feed subscriptions with ease
-* **Smart Reading Interface** - Modern React-based UI powered by @wordpress/dataviews
-* **Auto-Sync** - Automatic hourly feed fetching keeps your content fresh
-* **Read/Unread Tracking** - Mark articles as read or unread with taxonomy-based filtering
-* **Favorites** - Star important articles to exclude them from auto-pruning
-* **Auto-Pruning** - Automatically delete old items (default: 30 days) while preserving favorites
-* **Categories** - Organize feeds with custom categories
-* **Full-Text Reading** - Read articles directly in WordPress with a beautiful drawer interface
-* **Thumbnail Extraction** - Automatically extracts and displays article images
-* **WP-CLI Support** - Manage feeds from the command line
-
-= WP-CLI Commands =
-
-* `wp feeds refresh-all` - Delete all feed items and refetch from all feeds
-* `wp feeds delete-all-items` - Delete all feed items only
-* `wp feeds fetch-all` - Fetch all feeds without deleting
-* `wp feeds create-labels` - Create default label terms
-
-= Developer Features =
-
-**REST API Endpoints:**
-* `POST /wp-json/feeds/v1/refresh/{id}` - Manually refresh a specific feed
-
-**Filters & Hooks:**
-* `feeds_retention_days` - Filter to change the auto-pruning retention period (default: 30 days)
-
-Example:
-`
-add_filter( 'feeds_retention_days', function() {
-    return 90; // Keep items for 90 days
-} );
-`
-
-**Background Jobs:**
-The plugin uses WordPress Cron to schedule:
-* **Hourly**: Fetch all feeds
-* **Daily**: Prune old items
+* **Feed Management**: Add, delete, refresh, and manage RSS feed subscriptions with status monitoring
+* **OPML Import**: Import feed subscriptions from OPML files with automatic category organization
+* **Smart Reading Interface**: Modern React-based split-pane UI with DataViews (table & list views)
+* **Auto-Sync**: Hourly automatic feed fetching
+* **Read/Unread Tracking**: Articles automatically marked as read when closed
+* **Favorites**: Star important articles - favorites are preserved when closing articles
+* **Thumbnail Support**: Automatic extraction of article images from multiple sources (media:thumbnail, enclosures, content)
+* **Feed Status Monitoring**: Filter feeds by success/error status to identify problematic sources
 
 == Installation ==
 
@@ -70,7 +41,7 @@ By default, feeds are fetched automatically every hour. You can also manually re
 
 = How long are feed items kept? =
 
-Feed items are automatically deleted after 30 days by default. You can customize this using the `feeds_retention_days` filter. Favorited items are never deleted.
+Feed items are automatically deleted after they've
 
 = Can I use this without the WordPress admin? =
 
