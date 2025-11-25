@@ -2,6 +2,8 @@
 
 A self-hosted RSS reader living natively inside the WordPress Admin Dashboard. It aggregates content from external feeds into Custom Post Types and provides a modern React-based reading interface using @wordpress/dataviews.
 
+Download a zip of the latest release from the [Releases page](https://github.com/bacoords/feeds/releases).
+
 ## Features
 
 - **Feed Management**: Add, delete, refresh, and manage RSS feed subscriptions with status monitoring
@@ -94,4 +96,4 @@ GPL v2 or later
 
 ## Support
 
-For issues and feature requests, please open an issue on the [GitHub repository](https://github.com/briancoords/feeds).
+For issues and feature requests, please open an issue on the [GitHub repository](https://github.com/bacoords/feeds).
