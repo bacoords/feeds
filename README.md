@@ -4,12 +4,19 @@ A self-hosted RSS reader living natively inside the WordPress Admin Dashboard. I
 
 Download a zip of the latest release from the [Releases page](https://github.com/bacoords/feeds/releases).
 
+## Installation
+
+1. Clone or download the plugin to your `wp-content/plugins` directory
+2. Run `composer install` in the plugin directory to install dependencies
+3. Run `npm install && npm run build` to build the frontend assets
+4. Activate the plugin in WordPress
+
 ## Features
 
 - **Feed Management**: Add, delete, refresh, and manage RSS feed subscriptions with status monitoring
 - **OPML Import**: Import feed subscriptions from OPML files with automatic category organization
 - **Smart Reading Interface**: Modern React-based split-pane UI with DataViews (table & list views)
-- **Auto-Sync**: Hourly automatic feed fetching
+- **Auto-Sync**: Automatic feed fetching with per-feed refresh intervals (powered by Action Scheduler)
 - **Read/Unread Tracking**: Articles automatically marked as read when closed
 - **Favorites**: Star important articles - favorites are preserved when closing articles
 - **Thumbnail Support**: Automatic extraction of article images from multiple sources (media:thumbnail, enclosures, content)

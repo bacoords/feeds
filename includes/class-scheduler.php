@@ -1,6 +1,7 @@
 <?php
 /**
  * Scheduler Service for Background Processing
+ * Uses Action Scheduler for reliable queued feed fetching
  *
  * @package Feeds
  */
@@ -37,39 +38,38 @@ class Feeds_Scheduler {
 	 * Constructor
 	 */
 	private function __construct() {
-		// Register action hooks.
-		add_action( 'feeds_fetch_all', array( $this, 'fetch_all_feeds' ) );
+		// Register action hooks for Action Scheduler.
+		add_action( 'feeds_check_due', array( $this, 'check_due_feeds' ) );
 		add_action( 'feeds_fetch_single', array( $this, 'fetch_single_feed' ) );
 
-		// Schedule recurring events on plugin activation.
-		add_action( 'admin_init', array( $this, 'schedule_events' ) );
+		// Schedule recurring check on init (after Action Scheduler is loaded).
+		add_action( 'init', array( $this, 'schedule_recurring_check' ), 20 );
 
 		// Clean up on deactivation.
 		register_deactivation_hook( FEEDS_PLUGIN_DIR . 'feeds.php', array( $this, 'unschedule_events' ) );
 	}
 
 	/**
-	 * Schedule recurring events
+	 * Schedule the recurring check for due feeds
 	 */
-	public function schedule_events() {
-		// Schedule hourly feed fetching.
-		if ( ! wp_next_scheduled( 'feeds_fetch_all' ) ) {
-			wp_schedule_event( time(), 'hourly', 'feeds_fetch_all' );
+	public function schedule_recurring_check() {
+		// Only schedule if Action Scheduler is available.
+		if ( ! function_exists( 'as_has_scheduled_action' ) ) {
+			return;
+		}
+
+		// Schedule recurring action every 15 minutes if not already scheduled.
+		if ( ! as_has_scheduled_action( 'feeds_check_due' ) ) {
+			as_schedule_recurring_action( time(), 900, 'feeds_check_due', array(), 'feeds' );
 		}
 	}
 
 	/**
-	 * Unschedule all events
+	 * Check which feeds are due for fetching and queue them
 	 */
-	public function unschedule_events() {
-		wp_clear_scheduled_hook( 'feeds_fetch_all' );
-	}
+	public function check_due_feeds() {
+		$now = time();
 
-	/**
-	 * Fetch all feeds
-	 * This is the main hourly job that schedules individual fetch jobs
-	 */
-	public function fetch_all_feeds() {
 		$sources = get_posts(
 			array(
 				'post_type'      => Feeds_Feed_Source_CPT::POST_TYPE,
@@ -80,8 +80,18 @@ class Feeds_Scheduler {
 		);
 
 		foreach ( $sources as $source_id ) {
-			// Schedule individual fetch job.
-			$this->schedule_single_fetch( $source_id );
+			$last_fetched = (int) get_post_meta( $source_id, '_feeds_last_fetched', true );
+			$interval     = (int) get_post_meta( $source_id, '_feeds_refresh_interval', true );
+
+			// Default to 1 hour if no interval set.
+			if ( ! $interval ) {
+				$interval = 3600;
+			}
+
+			// Check if feed is due for refresh.
+			if ( $last_fetched + $interval <= $now ) {
+				$this->schedule_single_fetch( $source_id );
+			}
 		}
 	}
 
@@ -91,9 +101,16 @@ class Feeds_Scheduler {
 	 * @param int $source_id Feed source post ID.
 	 */
 	public function schedule_single_fetch( $source_id ) {
-		// Check if already scheduled.
-		if ( ! wp_next_scheduled( 'feeds_fetch_single', array( $source_id ) ) ) {
-			wp_schedule_single_event( time(), 'feeds_fetch_single', array( $source_id ) );
+		// Only schedule if Action Scheduler is available.
+		if ( ! function_exists( 'as_has_scheduled_action' ) ) {
+			// Fallback: fetch immediately if Action Scheduler not available.
+			$this->fetch_single_feed( $source_id );
+			return;
+		}
+
+		// Queue async action if not already pending.
+		if ( ! as_has_scheduled_action( 'feeds_fetch_single', array( $source_id ), 'feeds' ) ) {
+			as_enqueue_async_action( 'feeds_fetch_single', array( $source_id ), 'feeds' );
 		}
 	}
 
@@ -105,5 +122,15 @@ class Feeds_Scheduler {
 	public function fetch_single_feed( $source_id ) {
 		$fetcher = Feeds_RSS_Fetcher::get_instance();
 		$fetcher->fetch_feed( $source_id );
+	}
+
+	/**
+	 * Unschedule all events on plugin deactivation
+	 */
+	public function unschedule_events() {
+		if ( function_exists( 'as_unschedule_all_actions' ) ) {
+			as_unschedule_all_actions( 'feeds_check_due', array(), 'feeds' );
+			as_unschedule_all_actions( 'feeds_fetch_single', null, 'feeds' );
+		}
 	}
 }

@@ -138,6 +138,22 @@ class Feeds_Feed_Source_CPT {
 				},
 			)
 		);
+
+		// Refresh Interval.
+		register_post_meta(
+			self::POST_TYPE,
+			'_feeds_refresh_interval',
+			array(
+				'type'          => 'integer',
+				'description'   => __( 'Refresh interval in seconds', 'feeds' ),
+				'single'        => true,
+				'default'       => 3600,
+				'show_in_rest'  => true,
+				'auth_callback' => function() {
+					return current_user_can( 'edit_posts' );
+				},
+			)
+		);
 	}
 
 	/**

@@ -21,8 +21,17 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install dependencies
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.1"
+          tools: composer
+
+      - name: Install Node dependencies
         run: npm install
+
+      - name: Install Composer dependencies
+        run: composer install --no-dev --optimize-autoloader
 
       - name: Build plugin
         run: npm run build
@@ -34,7 +43,9 @@ jobs:
           # Copy production files
           cp -r build release/feeds/
           cp -r includes release/feeds/
+          cp -r vendor release/feeds/
           cp feeds.php release/feeds/
+          cp composer.json release/feeds/
           cp README.md release/feeds/
           cp readme.txt release/feeds/
 

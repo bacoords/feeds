@@ -1,0 +1,11 @@
+{
+    "name": "briancoords/feeds",
+    "description": "A self-hosted RSS reader for WordPress",
+    "type": "wordpress-plugin",
+    "require": {
+        "woocommerce/action-scheduler": "^3.7"
+    },
+    "config": {
+        "vendor-dir": "vendor"
+    }
+}
