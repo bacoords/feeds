@@ -84,11 +84,10 @@ add_filter( 'feeds_import_max_age_days', function() {
 
 The plugin includes WP-CLI commands for development and testing:
 
-* `wp feeds refresh-all` - Delete all feed items and refetch from all feeds
-* `wp feeds delete-all` - Deletes all feed sources and all feed items (complete
+* `wp feeds sources fetch` - Fetch all feeds without deleting
+* `wp feeds sources delete` - Deletes all feed sources and all feed items (complete
                         reset).
-* `wp feeds delete-all-items` - Deletes all feed items only (without refetching).
-* `wp feeds fetch-all` - Fetch all feeds without deleting
+* `wp feeds items delete` - Deletes all feed items and keeps sources.
 
 ## License
 

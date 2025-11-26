@@ -15,100 +15,29 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class Feeds_CLI_Commands {
 
-
-
 	/**
 	 * Registers commands for managing feeds.
 	 */
 	public static function register_commands() {
-		WP_CLI::add_command( 'feeds refresh-all', array( 'Feeds_CLI_Commands', 'refresh_all' ) );
-		WP_CLI::add_command( 'feeds delete-all-items', array( 'Feeds_CLI_Commands', 'delete_all_items' ) );
-		WP_CLI::add_command( 'feeds delete-all', array( 'Feeds_CLI_Commands', 'delete_all' ) );
-		WP_CLI::add_command( 'feeds fetch-all', array( 'Feeds_CLI_Commands', 'fetch_all' ) );
+		WP_CLI::add_command( 'feeds sources fetch', array( 'Feeds_CLI_Commands', 'sources_fetch' ) );
+		WP_CLI::add_command( 'feeds sources delete', array( 'Feeds_CLI_Commands', 'sources_delete' ) );
+		WP_CLI::add_command( 'feeds items delete', array( 'Feeds_CLI_Commands', 'items_delete' ) );
 	}
 
 	/**
-	 * Deletes all feed items and refetches them from all feeds.
+	 * Fetches all feeds without deleting existing items.
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp feeds refresh-all
+	 *     wp feeds sources fetch
 	 *
 	 * @when after_wp_load
 	 */
-	public function refresh_all( $args, $assoc_args ) {
-		WP_CLI::line( 'Starting feed refresh process...' );
-
-		// Step 1: Delete all feed items.
-		WP_CLI::line( 'Deleting all existing feed items...' );
-		$deleted = $this->delete_all_feed_items();
-		WP_CLI::success( sprintf( 'Deleted %d feed items.', $deleted ) );
-
-		// Step 2: Fetch all feeds.
+	public function sources_fetch( $args, $assoc_args ) {
 		WP_CLI::line( 'Fetching all feeds...' );
 		$fetcher = Feeds_RSS_Fetcher::get_instance();
-
-		// Get all feed sources.
-		$sources = get_posts(
-			array(
-				'post_type'      => Feeds_Feed_Source_CPT::POST_TYPE,
-				'posts_per_page' => -1,
-				'post_status'    => 'publish',
-			)
-		);
-
-		if ( empty( $sources ) ) {
-			WP_CLI::warning( 'No feed sources found.' );
-			return;
-		}
-
-		$progress = \WP_CLI\Utils\make_progress_bar( 'Fetching feeds', count( $sources ) );
-
-		$success_count = 0;
-		$error_count   = 0;
-
-		foreach ( $sources as $source ) {
-			$result = $fetcher->fetch_feed( $source->ID );
-
-			if ( is_wp_error( $result ) ) {
-				$error_count++;
-				WP_CLI::warning( sprintf( 'Error fetching "%s": %s', $source->post_title, $result->get_error_message() ) );
-			} else {
-				$success_count++;
-			}
-
-			$progress->tick();
-		}
-
-		$progress->finish();
-
-		WP_CLI::line( '' );
-		WP_CLI::success( sprintf( 'Successfully fetched %d feeds.', $success_count ) );
-
-		if ( $error_count > 0 ) {
-			WP_CLI::warning( sprintf( '%d feeds failed to fetch.', $error_count ) );
-		}
-
-		// Get total items count.
-		$total_items = wp_count_posts( Feeds_Feed_Item_CPT::POST_TYPE )->publish;
-		WP_CLI::success( sprintf( 'Total feed items: %d', $total_items ) );
-	}
-
-	/**
-	 * Deletes all feed items only (without refetching).
-	 *
-	 * ## EXAMPLES
-	 *
-	 *     wp feeds delete-all-items
-	 *
-	 * @when after_wp_load
-	 */
-	public function delete_all_items( $args, $assoc_args ) {
-		WP_CLI::confirm( 'Are you sure you want to delete all feed items? This cannot be undone.' );
-
-		WP_CLI::line( 'Deleting all feed items...' );
-		$deleted = $this->delete_all_feed_items();
-		WP_CLI::success( sprintf( 'Deleted %d feed items.', $deleted ) );
+		$fetcher->fetch_all_feeds();
+		WP_CLI::success( 'All feeds fetched successfully.' );
 	}
 
 	/**
@@ -116,11 +45,11 @@ class Feeds_CLI_Commands {
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp feeds delete-all
+	 *     wp feeds sources delete
 	 *
 	 * @when after_wp_load
 	 */
-	public function delete_all( $args, $assoc_args ) {
+	public function sources_delete( $args, $assoc_args ) {
 		WP_CLI::confirm( 'Are you sure you want to delete ALL feeds and feed items? This cannot be undone.' );
 
 		// Step 1: Delete all feed items.
@@ -137,19 +66,20 @@ class Feeds_CLI_Commands {
 	}
 
 	/**
-	 * Fetches all feeds without deleting existing items.
+	 * Deletes all feed items only (keeps sources).
 	 *
 	 * ## EXAMPLES
 	 *
-	 *     wp feeds fetch-all
+	 *     wp feeds items delete
 	 *
 	 * @when after_wp_load
 	 */
-	public function fetch_all( $args, $assoc_args ) {
-		WP_CLI::line( 'Fetching all feeds...' );
-		$fetcher = Feeds_RSS_Fetcher::get_instance();
-		$fetcher->fetch_all_feeds();
-		WP_CLI::success( 'All feeds fetched successfully.' );
+	public function items_delete( $args, $assoc_args ) {
+		WP_CLI::confirm( 'Are you sure you want to delete all feed items? This cannot be undone.' );
+
+		WP_CLI::line( 'Deleting all feed items...' );
+		$deleted = $this->delete_all_feed_items();
+		WP_CLI::success( sprintf( 'Deleted %d feed items.', $deleted ) );
 	}
 
 	/**
