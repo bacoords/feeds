@@ -10,9 +10,9 @@ import { decodeEntities } from "@wordpress/html-entities";
  * Helper to check if item has a label
  */
 export const hasLabel = (item, labelSlug) => {
-  // Handle 'read' status via post_status.
+  // Handle 'read' status via post_status (uses trash for auto-cleanup).
   if (labelSlug === "read") {
-    return item.status === "read";
+    return item.status === "trash";
   }
   // Handle 'favorite' status via post_status.
   if (labelSlug === "favorite") {
@@ -23,6 +23,7 @@ export const hasLabel = (item, labelSlug) => {
 
 /**
  * Mark item as read - update local state and server
+ * Uses 'trash' status so WordPress automatically cleans up old read items
  */
 export const markAsRead = async (
   itemId,
@@ -31,7 +32,7 @@ export const markAsRead = async (
   setSelectedArticle,
   selectedArticle
 ) => {
-  const newStatus = isRead ? "read" : "publish";
+  const newStatus = isRead ? "trash" : "publish";
 
   // Optimistically update local state immediately for instant UI feedback.
   setFeedItems((prevItems) =>
@@ -55,13 +56,22 @@ export const markAsRead = async (
 
   // Save to server in the background.
   try {
-    await apiFetch({
-      path: `/wp/v2/feed_items/${itemId}`,
-      method: "POST",
-      data: {
-        status: newStatus,
-      },
-    });
+    if (isRead) {
+      // Use DELETE to move to trash (WordPress REST API requirement).
+      await apiFetch({
+        path: `/wp/v2/feed_items/${itemId}`,
+        method: "DELETE",
+      });
+    } else {
+      // Restore from trash by setting status back to publish.
+      await apiFetch({
+        path: `/wp/v2/feed_items/${itemId}`,
+        method: "POST",
+        data: {
+          status: "publish",
+        },
+      });
+    }
   } catch (error) {
     console.error("Failed to mark item as read:", error);
   }

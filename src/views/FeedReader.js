@@ -50,7 +50,7 @@ const FeedReader = () => {
       view.filters.forEach((filter) => {
         if (filter.field === "status" && filter.operator === "is") {
           if (filter.value === "read") {
-            statusFilter = "read";
+            statusFilter = "trash";
           } else if (filter.value === "favorite") {
             statusFilter = "favorite";
           } else if (filter.value === "unread") {

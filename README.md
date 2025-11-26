@@ -44,8 +44,8 @@ The plugin uses custom post statuses for efficient filtering without meta querie
 
 **Feed Items:**
 - `publish` - Unread articles (default)
-- `read` - Articles marked as read
-- `favorite` - Favorited articles (mutually exclusive with read status)
+- `trash` - Articles marked as read get moved to trash
+- `favorite` - Favorited articles get saved with this status
 
 **Feed Sources:**
 - `publish` - Successfully fetched feeds
@@ -65,7 +65,7 @@ The plugin exposes the following REST API endpoints:
 ## Filters & Hooks
 The plugin provides the following filters for customization:
 - `feeds_excerpt_char_limit` - Filter to change the excerpt character limit (default: 300)
-- `feeds_import_max_age_days` - Filter to change the maximum age of items to import when adding a feed (default: 60 days)
+- `feeds_import_max_age_days` - Filter to change the maximum age of items to import when adding a feed (default: 7 days)
 
 Examples:
 ```php

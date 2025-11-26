@@ -162,7 +162,7 @@ class Feeds_RSS_Fetcher {
 	 */
 	private function process_feed_item( $item, $source_id, $categories = array() ) {
 		// Check item age - skip if too old.
-		$max_age_days = apply_filters( 'feeds_import_max_age_days', 60 );
+		$max_age_days = apply_filters( 'feeds_import_max_age_days', 7 );
 		$item_date    = $item->get_date( 'U' );
 		$cutoff_date  = strtotime( "-{$max_age_days} days" );
 

@@ -81,19 +81,6 @@ class Feeds_Feed_Item_CPT {
 	 * Register custom post statuses
 	 */
 	public function register_post_statuses() {
-		// Read status.
-		register_post_status(
-			'read',
-			array(
-				'label'                     => __( 'Read', 'feeds' ),
-				'public'                    => false,
-				'exclude_from_search'       => true,
-				'show_in_admin_all_list'    => false,
-				'show_in_admin_status_list' => false,
-				'label_count'               => _n_noop( 'Read <span class="count">(%s)</span>', 'Read <span class="count">(%s)</span>', 'feeds' ),
-			)
-		);
-
 		// Favorite status.
 		register_post_status(
 			'favorite',
@@ -211,14 +198,6 @@ class Feeds_Feed_Item_CPT {
 				},
 			)
 		);
-	}
-
-	/**
-	 * Legacy function - no longer needed with post_status architecture
-	 * Kept for backward compatibility but does nothing
-	 */
-	public static function mark_read_posts_as_draft() {
-		// No-op: read items now use 'read' post_status directly
 	}
 
 	/**

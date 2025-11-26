@@ -124,9 +124,6 @@ class Feeds_Plugin {
 	 * Render admin page
 	 */
 	public function render_admin_page() {
-		// Mark read posts as draft when the admin page loads.
-		Feeds_Feed_Item_CPT::mark_read_posts_as_draft();
-
 		echo '<div id="feeds-app"></div>';
 	}
 }
