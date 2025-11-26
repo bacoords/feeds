@@ -29,6 +29,7 @@ This project uses `@wordpress/scripts` for the build process.
 ### Setup
 
 ```bash
+composer install
 npm install
 npm run build
 ```
