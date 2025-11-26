@@ -3,7 +3,7 @@ name: Build Release
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
 
 permissions:
@@ -20,20 +20,13 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
       - name: Install dependencies
         run: npm install
 
       - name: Build plugin
         run: npm run build
-
-      - name: Verify build output
-        run: |
-          echo "Checking if build directory exists..."
-          ls -la
-          echo "Contents of build directory:"
-          ls -la build/
 
       - name: Create release directory
         run: |
@@ -50,13 +43,6 @@ jobs:
           if [ -f LICENSE ]; then cp LICENSE release/feeds/; fi
           if [ -f LICENSE.txt ]; then cp LICENSE.txt release/feeds/; fi
 
-      - name: Verify release contents
-        run: |
-          echo "Contents of release/feeds directory:"
-          ls -la release/feeds/
-          echo "Contents of release/feeds/build directory:"
-          ls -la release/feeds/build/
-
       - name: Create zip file
         run: |
           cd release
@@ -66,14 +52,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: feeds-plugin
-          path: release/feeds.zip
+          path: release/feeds-plugin.zip
           retention-days: 30
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          files: release/feeds.zip
+          files: release/feeds-plugin.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
