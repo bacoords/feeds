@@ -1,6 +1,6 @@
 {
   "name": "feeds",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A self-hosted RSS reader for WordPress",
   "main": "build/index.js",
   "scripts": {
