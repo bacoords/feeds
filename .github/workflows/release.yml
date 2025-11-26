@@ -47,6 +47,18 @@ jobs:
         run: |
           cd release
           zip -r feeds.zip feeds/
+          echo "✓ Zip file created at release/feeds.zip"
+          ls -lh feeds.zip
+
+      - name: Verify zip file exists
+        run: |
+          if [ -f release/feeds.zip ]; then
+            echo "✓ Zip file verified at: $(pwd)/release/feeds.zip"
+            ls -lh release/feeds.zip
+          else
+            echo "✗ ERROR: Zip file not found!"
+            exit 1
+          fi
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -61,5 +73,4 @@ jobs:
         with:
           files: release/feeds.zip
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ github.token }}
