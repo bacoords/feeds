@@ -195,8 +195,8 @@ class Feeds_RSS_Fetcher {
 		$post_data = array(
 			'post_type'    => Feeds_Feed_Item_CPT::POST_TYPE,
 			'post_title'   => $item->get_title() ? $item->get_title() : __( 'Untitled', 'feeds' ),
-			'post_content' => $item->get_content() ? $item->get_content() : $item->get_description(),
-			'post_excerpt' => $item->get_description( true ),
+			'post_content' => $item->get_content() ? $item->get_content() : ( $item->get_description() ? $item->get_description() : '' ),
+			'post_excerpt' => $item->get_description() ? $item->get_description() : '',
 			'post_status'  => 'publish',
 			'post_date'    => $item->get_date( 'Y-m-d H:i:s' ) ? $item->get_date( 'Y-m-d H:i:s' ) : current_time( 'mysql' ),
 		);

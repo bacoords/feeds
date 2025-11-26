@@ -46,6 +46,7 @@ class Feeds_Feed_Source_CPT {
 	private function __construct() {
 		add_action( 'init', array( $this, 'register_post_type' ) );
 		add_action( 'init', array( $this, 'register_meta_fields' ) );
+		add_action( 'delete_post_' . self::POST_TYPE, array( $this, 'handle_post_deletion' ) );
 	}
 
 	/**
@@ -138,4 +139,23 @@ class Feeds_Feed_Source_CPT {
 			)
 		);
 	}
+
+	/**
+	 * Handle post deletion cleanup
+	 *
+	 * @param int $post_id The ID of the deleted post.
+	 */
+	public function handle_post_deletion( $post_id ) {
+		// Delete all feed items associated with this source.
+		$feed_items = get_posts( array(
+			'post_type'      => Feeds_Feed_Item_CPT::POST_TYPE,
+			'meta_key'       => '_feeds_source_id',
+			'meta_value'     => $post_id,
+			'posts_per_page' => -1,				
+		) );
+
+		foreach ( $feed_items as $item ) {
+			wp_delete_post( $item->ID, true );
+		}
+	}	
 }
