@@ -6,13 +6,6 @@ Download a zip of the latest release from the [Releases page](https://github.com
 
 Try it out on WordPress Playground: [Playground](https://playground.wordpress.net/?blueprint-url=https://github.com/bacoords/feeds/blob/main/assets/blueprints/blueprint.json)
 
-## Installation
-
-1. Clone or download the plugin to your `wp-content/plugins` directory
-2. Run `composer install` in the plugin directory to install dependencies
-3. Run `npm install && npm run build` to build the frontend assets
-4. Activate the plugin in WordPress
-
 ## Features
 
 - **Feed Management**: Add, delete, refresh, and manage RSS feed subscriptions with status monitoring
@@ -95,8 +88,7 @@ add_filter( 'feeds_import_max_age_days', function() {
 The plugin includes WP-CLI commands for development and testing:
 
 * `wp feeds sources fetch` - Fetch all feeds without deleting
-* `wp feeds sources delete` - Deletes all feed sources and all feed items (complete
-                        reset).
+* `wp feeds sources delete` - Deletes all feed sources and all feed items (complete reset).
 * `wp feeds items delete` - Deletes all feed items and keeps sources.
 
 ## License
