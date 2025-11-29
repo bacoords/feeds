@@ -34,7 +34,7 @@ class Feeds_CLI_Commands {
 	 * @when after_wp_load
 	 */
 	public function sources_fetch( $args, $assoc_args ) {
-		WP_CLI::confirm( 'Are you sure you want to fetch ALL feeds and feed items? This is a potentially time-consuming operation.' );
+		WP_CLI::confirm( 'Are you sure you want to fetch ALL feeds and feed items? This is a potentially time-consuming operation.', $assoc_args );
 
 		WP_CLI::line( 'Fetching all feeds...' );
 		$fetcher = Feeds_RSS_Fetcher::get_instance();
@@ -52,7 +52,7 @@ class Feeds_CLI_Commands {
 	 * @when after_wp_load
 	 */
 	public function sources_delete( $args, $assoc_args ) {
-		WP_CLI::confirm( 'Are you sure you want to delete ALL feeds and feed items? This cannot be undone.' );
+		WP_CLI::confirm( 'Are you sure you want to delete ALL feeds and feed items? This cannot be undone.', $assoc_args );
 
 		// Step 1: Delete all feed items.
 		WP_CLI::line( 'Deleting all feed items...' );
@@ -77,7 +77,7 @@ class Feeds_CLI_Commands {
 	 * @when after_wp_load
 	 */
 	public function items_delete( $args, $assoc_args ) {
-		WP_CLI::confirm( 'Are you sure you want to delete all feed items? This cannot be undone.' );
+		WP_CLI::confirm( 'Are you sure you want to delete all feed items? This cannot be undone.', $assoc_args );
 
 		WP_CLI::line( 'Deleting all feed items...' );
 		$deleted = $this->delete_all_feed_items();
