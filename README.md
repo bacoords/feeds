@@ -4,6 +4,8 @@ A self-hosted RSS reader living natively inside the WordPress Admin Dashboard. I
 
 Download a zip of the latest release from the [Releases page](https://github.com/bacoords/feeds/releases).
 
+Try it out on WordPress Playground: [Playground](https://playground.wordpress.net/?blueprint-url=https://github.com/bacoords/feeds/blob/main/assets/blueprints/blueprint.json)
+
 ## Installation
 
 1. Clone or download the plugin to your `wp-content/plugins` directory

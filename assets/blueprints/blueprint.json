@@ -1,0 +1,33 @@
+{
+  "$schema": "https://playground.wordpress.net/blueprint-schema.json",
+  "landingPage": "/wp-admin/admin.php?page=feeds",
+  "preferredVersions": {
+    "php": "8.2",
+    "wp": "latest"
+  },
+  "steps": [
+    {
+      "step": "login",
+      "username": "admin",
+      "password": "password"
+    },
+    {
+      "step": "installPlugin",
+      "pluginData": {
+        "resource": "url",
+        "url": "https://github.com/bacoords/feeds/releases/latest/download/feeds.zip"
+      },
+      "options": {
+        "activate": true
+      }
+    },
+    {
+      "step": "wp-cli",
+      "command": "wp post create --post_type=feeds_source --post_title='Make WordPress Core Blog' --post_status=publish --meta_input='{\"_feeds_source_url\":\"https://make.wordpress.org/core/feed\"}'"
+    },
+    {
+      "step": "wp-cli",
+      "command": "wp feeds sources fetch --yes"
+    }
+  ]
+}
