@@ -1,4 +1,4 @@
-=== Feeds - Self-Hosted RSS Reader ===
+=== Feeds ===
 Contributors: bacoords
 Tags: rss, feed reader, aggregator, news reader, feeds
 Requires at least: 6.8
