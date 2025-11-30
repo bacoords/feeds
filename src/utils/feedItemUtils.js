@@ -218,7 +218,8 @@ export const getFields = (feedSources) => [
 export const getActions = (
   setSelectedArticle,
   markAsReadCallback,
-  toggleFavoriteCallback
+  toggleFavoriteCallback,
+  selectedArticle = null
 ) => [
   {
     id: "view",
@@ -226,6 +227,10 @@ export const getActions = (
     isPrimary: true,
     callback(items) {
       if (items.length === 1) {
+        // Mark previous article as read if it's not a favorite.
+        if (selectedArticle && selectedArticle.status !== "favorite") {
+          markAsReadCallback(selectedArticle.id, true);
+        }
         setSelectedArticle(items[0]);
       }
     },

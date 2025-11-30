@@ -122,7 +122,8 @@ const FeedReader = () => {
   const actions = getActions(
     setSelectedArticle,
     markAsReadCallback,
-    toggleFavoriteCallback
+    toggleFavoriteCallback,
+    selectedArticle
   );
 
   // Handle closing the article drawer.
@@ -164,6 +165,10 @@ const FeedReader = () => {
               const item = feedItems.find(
                 (feedItem) => feedItem.id === items[0]
               );
+              // Mark previous article as read if it's not a favorite.
+              if (selectedArticle && selectedArticle.status !== "favorite") {
+                markAsReadCallback(selectedArticle.id, true);
+              }
               setSelectedArticle(item || null);
             }
           }}
