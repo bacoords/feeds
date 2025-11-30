@@ -93,16 +93,21 @@ class Feeds_CLI_Commands {
 		global $wpdb;
 
 		// Get all feed item IDs.
-		$post_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts} WHERE post_type = %s",
-				Feeds_Feed_Item_CPT::POST_TYPE
+		$query = new WP_Query(
+			array(
+				'post_type'      => Feeds_Feed_Item_CPT::POST_TYPE,
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'post_status'    => 'any',
 			)
 		);
+
+		$post_ids = $query->posts;
 
 		if ( empty( $post_ids ) ) {
 			return 0;
 		}
+
 
 		$deleted = 0;
 
@@ -121,15 +126,17 @@ class Feeds_CLI_Commands {
 	 * @return int Number of sources deleted.
 	 */
 	private function delete_all_feed_sources() {
-		global $wpdb;
-
 		// Get all feed source IDs.
-		$post_ids = $wpdb->get_col(
-			$wpdb->prepare(
-				"SELECT ID FROM {$wpdb->posts} WHERE post_type = %s",
-				Feeds_Feed_Source_CPT::POST_TYPE
+		$query = new WP_Query(
+			array(
+				'post_type'      => Feeds_Feed_Source_CPT::POST_TYPE,
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+				'post_status'    => 'any',
 			)
 		);
+
+		$post_ids = $query->posts;
 
 		if ( empty( $post_ids ) ) {
 			return 0;
