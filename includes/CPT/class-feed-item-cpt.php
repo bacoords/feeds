@@ -90,6 +90,7 @@ class Feeds_Feed_Item_CPT {
 				'exclude_from_search'       => true,
 				'show_in_admin_all_list'    => false,
 				'show_in_admin_status_list' => false,
+				/* translators: %s: Number of items */
 				'label_count'               => _n_noop( 'Favorite <span class="count">(%s)</span>', 'Favorite <span class="count">(%s)</span>', 'feeds' ),
 			)
 		);
