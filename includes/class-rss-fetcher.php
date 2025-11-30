@@ -409,11 +409,7 @@ class Feeds_RSS_Fetcher {
 				'imported' => $imported,
 				'skipped'  => $skipped,
 				'message'  => sprintf(
-					/**
-					 * Translates the OPML import completion message.
-					 *
-					 * translators: %1$d is the number of feeds successfully imported, %2$d is the number of feeds skipped during import.
-					 */
+					// translators: %1$d is the number of feeds successfully imported, %2$d is the number of feeds skipped during import.
 					__( 'OPML import complete. Imported: %1$d, Skipped: %2$d', 'feeds' ),
 					$imported,
 					$skipped
