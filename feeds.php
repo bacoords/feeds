@@ -84,7 +84,6 @@ class Feeds_Plugin {
 	 * Initialize hooks
 	 */
 	private function init_hooks() {
-		add_action( 'init', array( $this, 'init' ) );
 		add_action( 'admin_menu', array( $this, 'add_admin_menu' ) );
 
 		// Initialize CPTs.
@@ -100,14 +99,6 @@ class Feeds_Plugin {
 		if ( defined( 'WP_CLI' ) && WP_CLI ) {
 			Feeds_CLI_Commands::register_commands();
 		}
-	}
-
-	/**
-	 * Initialize plugin
-	 */
-	public function init() {
-		// Load text domain.
-		load_plugin_textdomain( 'feeds', false, dirname( FEEDS_PLUGIN_BASENAME ) . '/languages' );
 	}
 
 	/**
