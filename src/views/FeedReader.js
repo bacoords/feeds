@@ -97,23 +97,39 @@ const FeedReader = () => {
 
   // Wrapper for markAsRead with current state.
   const markAsReadCallback = (itemId, isRead) => {
-    markAsRead(itemId, isRead, setFeedItems, setSelectedArticle, selectedArticle);
+    markAsRead(
+      itemId,
+      isRead,
+      setFeedItems,
+      setSelectedArticle,
+      selectedArticle
+    );
   };
 
   // Wrapper for toggleFavorite with current dependencies.
   const toggleFavoriteCallback = (itemId, currentItem) => {
-    toggleFavorite(itemId, currentItem, setFeedItems, setSelectedArticle, selectedArticle);
+    toggleFavorite(
+      itemId,
+      currentItem,
+      setFeedItems,
+      setSelectedArticle,
+      selectedArticle
+    );
   };
 
   // Get fields and actions.
   const fields = getFields(feedSources);
-  const actions = getActions(setSelectedArticle, markAsReadCallback, toggleFavoriteCallback);
+  const actions = getActions(
+    setSelectedArticle,
+    markAsReadCallback,
+    toggleFavoriteCallback
+  );
 
   // Handle closing the article drawer.
   const handleCloseArticle = () => {
     if (selectedArticle) {
       // Only mark as read if it's not already a favorite.
-      if (selectedArticle.status !== 'favorite') {
+      if (selectedArticle.status !== "favorite") {
         markAsReadCallback(selectedArticle.id, true);
       }
     }
@@ -143,6 +159,14 @@ const FeedReader = () => {
             totalItems: totalItems || 0,
             totalPages: Math.ceil((totalItems || 0) / view.perPage),
           }}
+          onChangeSelection={(items) => {
+            if (items.length > 0) {
+              const item = feedItems.find(
+                (feedItem) => feedItem.id === items[0]
+              );
+              setSelectedArticle(item || null);
+            }
+          }}
           defaultLayouts={{
             list: {},
             table: {},
@@ -150,7 +174,11 @@ const FeedReader = () => {
         />
       </div>
 
-      <div className={`feeds-reader-article-pane ${selectedArticle ? "has-article" : ""}`}>
+      <div
+        className={`feeds-reader-article-pane ${
+          selectedArticle ? "has-article" : ""
+        }`}
+      >
         {selectedArticle ? (
           <ArticleDrawer
             article={selectedArticle}
