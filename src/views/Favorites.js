@@ -111,7 +111,7 @@ const Favorites = () => {
   const handleCloseArticle = () => {
     if (selectedArticle) {
       // Only mark as read if it's not already a favorite.
-      if (selectedArticle.status !== 'favorite') {
+      if (selectedArticle.status !== "favorite") {
         markAsReadCallback(selectedArticle.id, true);
       }
     }
@@ -141,6 +141,14 @@ const Favorites = () => {
             totalItems: totalItems || 0,
             totalPages: Math.ceil((totalItems || 0) / view.perPage),
           }}
+          onChangeSelection={(items) => {
+            if (items.length > 0) {
+              const item = feedItems.find(
+                (feedItem) => feedItem.id === items[0]
+              );
+              setSelectedArticle(item || null);
+            }
+          }}
           defaultLayouts={{
             list: {},
             table: {},
@@ -148,7 +156,11 @@ const Favorites = () => {
         />
       </div>
 
-      <div className={`feeds-reader-article-pane ${selectedArticle ? "has-article" : ""}`}>
+      <div
+        className={`feeds-reader-article-pane ${
+          selectedArticle ? "has-article" : ""
+        }`}
+      >
         {selectedArticle ? (
           <ArticleDrawer
             article={selectedArticle}
