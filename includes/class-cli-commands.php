@@ -21,6 +21,7 @@ class Feeds_CLI_Commands {
 	public static function register_commands() {
 		WP_CLI::add_command( 'feeds sources fetch', array( 'Feeds_CLI_Commands', 'sources_fetch' ) );
 		WP_CLI::add_command( 'feeds sources delete', array( 'Feeds_CLI_Commands', 'sources_delete' ) );
+		WP_CLI::add_command( 'feeds sources schedule', array( 'Feeds_CLI_Commands', 'sources_schedule' ) );
 		WP_CLI::add_command( 'feeds items delete', array( 'Feeds_CLI_Commands', 'items_delete' ) );
 	}
 
@@ -40,6 +41,55 @@ class Feeds_CLI_Commands {
 		$fetcher = Feeds_RSS_Fetcher::get_instance();
 		$fetcher->fetch_all_feeds();
 		WP_CLI::success( 'All feeds fetched successfully.' );
+	}
+
+	/**
+	 * Schedules all published feed sources that don't have a pending action.
+	 * Use this to fix feeds that were added before Action Scheduler was working.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp feeds sources schedule
+	 *
+	 * @when after_wp_load
+	 */
+	public function sources_schedule( $args, $assoc_args ) {
+		if ( ! function_exists( 'as_next_scheduled_action' ) ) {
+			WP_CLI::error( 'Action Scheduler is not available.' );
+			return;
+		}
+
+		$sources = get_posts(
+			array(
+				'post_type'      => Feeds_Feed_Source_CPT::POST_TYPE,
+				'post_status'    => 'publish',
+				'posts_per_page' => -1,
+				'fields'         => 'ids',
+			)
+		);
+
+		if ( empty( $sources ) ) {
+			WP_CLI::warning( 'No published feed sources found.' );
+			return;
+		}
+
+		$scheduler = Feeds_Scheduler::get_instance();
+		$scheduled = 0;
+		$skipped   = 0;
+
+		foreach ( $sources as $source_id ) {
+			$next_scheduled = as_next_scheduled_action( 'feeds_fetch_source', array( $source_id ), 'feeds' );
+
+			if ( false === $next_scheduled ) {
+				$scheduler->schedule_source( $source_id );
+				$scheduled++;
+				WP_CLI::line( sprintf( 'Scheduled: %s (ID: %d)', get_the_title( $source_id ), $source_id ) );
+			} else {
+				$skipped++;
+			}
+		}
+
+		WP_CLI::success( sprintf( 'Scheduled %d sources, skipped %d (already scheduled).', $scheduled, $skipped ) );
 	}
 
 	/**
