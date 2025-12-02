@@ -1,6 +1,6 @@
 # Changelog
 
-### [Unreleased]
+### [0.3.0] - 2025-12-2
 - Ensures Action Scheduler is loaded properly.
 - Adds additional schedule CLI command.
 
