@@ -1,5 +1,8 @@
 # Changelog
 
+### [Unreleased]
+- Ensures Action Scheduler is loaded properly.
+
 ### [0.2.7] - 2025-11-30
 - Addresses minor feedback from Plugin Check.
 

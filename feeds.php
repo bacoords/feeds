@@ -28,6 +28,12 @@ if ( file_exists( FEEDS_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
 	require_once FEEDS_PLUGIN_DIR . 'vendor/autoload.php';
 }
 
+// Load Action Scheduler - must be explicitly included as Composer autoloader
+// only handles class autoloading, not the initialization hooks AS requires.
+if ( file_exists( FEEDS_PLUGIN_DIR . 'vendor/woocommerce/action-scheduler/action-scheduler.php' ) ) {
+	require_once FEEDS_PLUGIN_DIR . 'vendor/woocommerce/action-scheduler/action-scheduler.php';
+}
+
 /**
  * Main Feeds Plugin Class
  */
