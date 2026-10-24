@@ -34,17 +34,43 @@ test('compiled worker endpoints fail closed without requiring a reader session',
   for (const endpoint of compiled.finalizePayload.endpointSources.filter(endpoint => endpoint.path !== '/api/health')) {
     const result = await execute(endpoint.source);
     assert.equal(result.status, 503, endpoint.path);
-    assert.match(JSON.parse(result.body).error, /disabled/i);
+    assert.match(JSON.parse(result.body).error, /disabled|not configured/i);
   }
 });
 
 test('compiled worker routes reject missing credentials even when the worker is configured', async () => {
-  for (const endpoint of compiled.finalizePayload.endpointSources.filter(endpoint => endpoint.path !== '/api/health')) {
+  for (const endpoint of compiled.finalizePayload.endpointSources.filter(endpoint => endpoint.path !== '/api/health' && endpoint.path !== '/api/cron/ingest')) {
     const result = await execute(endpoint.source, {
       __statticEnv: { FEEDS_WORKER_ENABLED: 'true', FEEDS_WORKER_SECRET: 'test-only-not-a-live-secret-0000000000' },
     });
     assert.equal(result.status, 401, endpoint.path);
   }
+});
+
+test('compiled native scheduler rejects forged markers and never fetches before authorization', async () => {
+  for (const endpoint of compiled.finalizePayload.endpointSources.filter(endpoint => endpoint.path === '/api/cron/ingest')) {
+    const result = await execute(endpoint.source, {
+      __statticEnv: { CRON_SECRET: 'test-only-not-a-live-secret-0000000000' },
+      __statticZeroRequest: { headers: { 'x-spacefast-cron': '1' } },
+      fetch: () => { throw new Error('Must not fetch'); },
+    });
+    assert.equal(result.status, 401);
+  }
+});
+
+test('compiled native trigger validates bearer then reports disabled without reading or fetching', async () => {
+  const endpoint = compiled.finalizePayload.endpointSources.find(endpoint => endpoint.path === '/api/cron/ingest' && endpoint.method === 'GET')!;
+  const secret = 'test-only-not-a-live-secret-0000000000';
+  const result = await execute(endpoint.source, {
+    __statticEnv: { CRON_SECRET: secret },
+    __statticZeroRequest: { headers: { authorization: `Bearer ${secret}` } },
+    __statticCrypto: (operation: string, payload: { a: string; b: string }) => {
+      assert.equal(operation, 'timing_safe_equal'); return payload.a === payload.b;
+    },
+    fetch: () => { throw new Error('Must not fetch'); },
+  });
+  assert.equal(result.status, 200);
+  assert.deepEqual(JSON.parse(result.body), { authenticated: true, enabled: false, outcome: 'disabled' });
 });
 
 test('compiled reader handlers reject signed-out and guest users before touching data', async () => {

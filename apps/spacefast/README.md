@@ -48,15 +48,25 @@ Limits are deliberate: 25 sources/account; 200 stored articles/source; latest 20
 
 Article bodies are plain text. There is no `innerHTML`, remote image, embed, tracking pixel or external font fetch. Rich article HTML is intentionally out of scope.
 
-## Ingestion: explicitly not live yet
+## Native scheduled ingestion: not enabled yet
 
-Zero's restricted server imports and five-second action budget are not suitable evidence that a mature parser and pinned-DNS Node network client run there. The separately runnable `worker/` is the safe ingestion candidate, **not a deployed service**. Read [worker/README.md](worker/README.md).
+The preferred path runs entirely in this Space's Zero runtime: a protected `GET /api/cron/ingest` processes at most one due feed in a write transaction. It uses Spacefast's host fetch, a 256 KiB body limit and a portable maintained XML validator/tokenizer, returning at most 20 unique plaintext items. Due times, retries, leases and results remain in the existing database. No separately hosted Node service is needed for this path.
 
-The app requires both `FEEDS_WORKER_ENABLED=true` and an app-scoped `FEEDS_WORKER_SECRET` of at least 32 characters before live feed activation or worker routes are usable. Neither is configured by this project. Never put real secrets into the repository, browser bundle, query strings or CLI arguments. Credential provisioning and external worker deployment require separate approval.
+The official installed `@spacefast/common` 0.8.0 egress contract identifies private-range/cloud-metadata blocking, DNS pinning and redirect-hop checks as unconditional safeguards for both runtimes. Zero documents a five-second timeout for each write-side fetch. This is not a claim that every browser fetch API exists in QuickJS: the adapter **fails closed if a bounded readable body is unavailable**. No fully buffered `text()` fallback silently weakens the byte cap. A real capability test is required before activation.
 
-Before enabling, verify all gates in [docs/VALIDATION.md](docs/VALIDATION.md), explicitly provision the secret through supported server-secret controls, and verify the actual environment bindings. Run one sequential worker only until hosted claim isolation is demonstrated. Worker requests are narrow `POST /api/worker/claim` and `POST /api/worker/result`; no unrestricted database or Spacefast management credential is used. A worker necessarily sees feed URLs and can submit feed content; it does not receive reader accounts or read/star history.
+The parser bundles unchanged, locked public ESM exports from `fast-xml-parser` (XMLValidator) and `htmlparser2` (tokenizer). It does not patch the compiler or shim forbidden globals. `server/vendor/` contains source hashes, package integrity/provenance and licenses. `npm run check:native-parser` detects stale artifacts; `npm run build:native-parser` regenerates them. The regular `build:zero` verifies them before compilation.
 
-Due job records survive missed scheduler ticks. Claim dispatches overdue work, so a worker restart catches up. Network I/O occurs outside database transactions; results carry the lease capability and stale completions are rejected. Failed fetches back off to an hour without disabling the source; expired workers recover with backoff. Result retries are idempotent. Native cron is intentionally **not declared**: documentation did not establish the exact value/spoof protection of `x-spacefast-cron`, so the app never treats it as authentication. The dispatcher endpoint requires the configured worker credential.
+### Protected trigger and staged verification
+
+1. Provision a strong, random 32–256 printable non-space character `CRON_SECRET` through supported server-only Space variables, with approval. Keep `FEEDS_NATIVE_INGESTION_ENABLED` absent or `false`. Verify the queued re-finalization and runtime binding.
+2. `GET /api/cron/ingest` requires `Authorization: Bearer <secret>`. With fetching disabled it returns only authenticated/enabled/outcome flags and logs those flags, never request headers or secrets. Missing configuration returns 503; missing/wrong bearer returns 401. A forged `x-spacefast-cron` is never sufficient.
+3. Verify that the real native scheduler injects the expected bearer before relying on it. Current cron config exposes only path/schedule; historical `CRON_SECRET` injection documentation is not current proof. The manual run API deliberately lacks the platform cron marker. No cron is currently declared in `sf.jsonc`.
+4. An authorized manual `POST` to the same path, while ingestion is disabled, performs one fixed public WordPress News request to inspect the fetch response shape. It accepts no URL, writes no data and returns no content/headers. It is a capability probe, not a live feed run. The endpoint is refused after activation.
+5. Verify actual bounded reads, native sessions/two-user isolation, retry/rollback, and a single non-overlapping scheduler before enabling `FEEDS_NATIVE_INGESTION_ENABLED=true`. If native secret injection cannot be established, an approved external cron may send the bearer trigger; fetch/parse/persistence still run entirely on Spacefast.
+
+Use one scheduler only, one invocation at a time. Native scheduler overlap prevention is scheduler-scoped, not a general database locking guarantee. The capsule DSL has no verified unique/CAS primitive; multi-trigger concurrency remains a gate. A tick catches expected fetch/parse failures and commits retry backoff. An unexpected failure or killed invocation rolls the entire attempt back, leaving the previous due job for a later tick. Network I/O is intentionally inside the bounded native write transaction; this differs from the optional Node adapter's two-phase lease protocol.
+
+The existing `worker/` remains an optional tested adapter/reference, not a deployed service and not the selected hosting architecture. Native activation disables its worker-authorization path. Its separate environment names do not authorize native triggers. Never place real secrets in source, browser bundles, URLs, CLI arguments or logs.
 
 ## Verification boundaries
 

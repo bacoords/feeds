@@ -60,7 +60,7 @@ test('worker authentication requires explicit enabling plus secret, not an app s
 });
 test('unconfigured source remains paused; enabling/refresh rejected but demo remains usable', async () => {
   const h=harness(),c=h.context('alice',false);const s=await d.addSource(c,feed,now);assert.equal(s.enabled,false);assert.equal((await d.dashboard(c)).workerConfigured,false);
-  await assert.rejects(d.updateSource(c,{id:s.id,enabled:true}),/not configured/);await assert.rejects(d.refreshSource(c,{id:s.id}),/connecting/);await d.seedDemo(c,{});assert.equal((await d.dashboard(c)).articles.length,3);h.close();
+  await assert.rejects(d.updateSource(c,{id:s.id,enabled:true}),/not configured/);await assert.rejects(d.refreshSource(c,{id:s.id}),/configuring/);await d.seedDemo(c,{});assert.equal((await d.dashboard(c)).articles.length,3);h.close();
 });
 test('pause and delete fence outstanding work and clean only owned records', async () => {
   const h=harness(),c=h.context();const s=await d.addSource(c,feed,now);const job=await d.claim(c,now);assert.ok(job);await d.updateSource(c,{id:s.id,enabled:false},now+1);

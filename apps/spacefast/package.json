@@ -27,16 +27,20 @@
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "typescript-eslint": "8.72.0",
-    "vite": "8.3.5"
+    "vite": "8.3.5",
+    "esbuild": "0.28.2",
+    "htmlparser2": "12.0.0"
   },
   "scripts": {
-    "build": "vite build",
-    "build:zero": "node --import tsx scripts/build-zero.ts",
+    "build": "npm run check:native-parser && vite build",
+    "build:zero": "npm run check:native-parser && node --import tsx scripts/build-zero.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint frontend server shared worker tests scripts",
     "test": "node --import tsx --test tests/*.test.ts frontend/*.test.ts",
     "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run build:zero",
-    "worker": "node --import tsx worker/cli.ts"
+    "worker": "node --import tsx worker/cli.ts",
+    "build:native-parser": "node --import tsx scripts/build-native-parser.ts",
+    "check:native-parser": "node --import tsx scripts/build-native-parser.ts --check"
   },
   "engines": {
     "node": ">=24"

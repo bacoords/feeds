@@ -2,6 +2,7 @@ import { boolean, capsule, endpoint, json, mutation, number, query, string, tabl
 import type { EndpointResponse } from '@spacefast/zero/server';
 import * as domain from './domain.js';
 import type { WorkerResult } from '../shared/contracts.js';
+import { authenticateNativeTrigger, nativeFetchProbe, nativeTick } from './native-ingestion.js';
 
 async function response(run: () => Promise<unknown>, status = 200): Promise<EndpointResponse> {
   try { return json(await run(), { status, headers: { 'cache-control': 'no-store' } }); }
@@ -41,6 +42,23 @@ export default capsule({
   },
   endpoints: {
     health: endpoint({ method: 'GET', path: '/api/health' }, () => json({ app: 'Feeds', version: '0.1.0' })),
+    ingest: endpoint({ method: 'GET', path: '/api/cron/ingest', readOnly: false }, async (raw, req) => {
+      const ctx = raw as unknown as domain.WriteContext;
+      return response(async () => {
+        // A marker header is not authentication. Missing secret always fails.
+        await authenticateNativeTrigger(ctx, req.headers.get('authorization'));
+        const result = await nativeTick(ctx);
+        raw.log.info('feeds.native-trigger', { authenticated: true, enabled: result.enabled, outcome: result.outcome });
+        return result;
+      });
+    }),
+    ingestionProbe: endpoint({ method: 'POST', path: '/api/cron/ingest', readOnly: false }, async (raw, req) => {
+      const ctx = raw as unknown as domain.WriteContext;
+      return response(async () => {
+        await authenticateNativeTrigger(ctx, req.headers.get('authorization'));
+        return nativeFetchProbe(ctx);
+      });
+    }),
     // Transport authentication does not depend on visitor cookies. The credential is
     // limited to these ingestion operations, never a Spacefast management credential.
     claim: endpoint({ method: 'POST', path: '/api/worker/claim' }, async (raw, req) => {
