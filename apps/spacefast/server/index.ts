@@ -12,8 +12,10 @@ async function response(run: () => Promise<unknown>, status = 200): Promise<Endp
 }
 export default capsule({
   name: 'Feeds',
-  // Each handler also authenticates explicitly: a guest has an ID but is not a reader.
-  auth: { requireSignIn: true },
+  // Do not set capsule-wide requireSignIn: Zero applies it before endpoints,
+  // which would reject public health and separately authenticated worker calls.
+  // Every reader query/mutation authenticates in domain.owner before data access.
+  auth: { requireSignIn: false },
   // Keep this literal: Zero analyzes schema declarations without evaluating imports.
   // build-zero verifies parity with the typed schema used by domain services.
   schema: {

@@ -1,6 +1,6 @@
 # Feeds: web-first Spacefast prototype
 
-A standalone React reader using WordPress Components and DataViews, with a native Spacefast Zero application backend. The WordPress plugin at the repository root is unchanged. No WordPress server, REST credentials, `wp` globals or global post statuses are used here.
+A standalone React reader using WordPress Components and DataViews, with a native Spacefast Zero application backend. The WordPress plugin at the repository root is unchanged. This app does not call WordPress REST APIs, use `wp` globals, or store reader state as global post statuses; Spacefast itself is backed by WordPress.
 
 **This is a bounded private prototype, not a production migration. Live RSS polling is off by default.** You can sign in through the platform, manage personal sources, add clearly labeled sample articles, and use independent read/star state. Source metadata and sample data are persisted per authenticated app user, not shared across site visitors. Live authentication, hosted MySQL isolation and hosted recovery still require deployment validation.
 
@@ -41,6 +41,8 @@ The actual app lives in `frontend/` because the Zero compiler scans every file u
 - `jobs`: durable source job, due time, retry count, lease capability/version and last completed capability.
 
 Every reader handler checks `isAuthenticated`, not just the presence of `userId` (guests also have IDs). Reads use owner indexes; mutations/details check ownership again. The client cannot supply an owner or server timestamp. Opening/closing a drawer does not implicitly change state; read/unread is explicit, unlike the legacy plugin's trash-on-close behavior.
+
+Authentication is deliberately per handler, not a capsule-wide `requireSignIn` gate: Zero applies the blanket gate before every endpoint, including public health and machine-authenticated ingestion. Native sign-in remains the reader identity source. Compiled-adapter regression tests verify that signed-out/guest reader operations are denied before data access, health is public, and worker operations remain disabled or credential-protected.
 
 Limits are deliberate: 25 sources/account; 200 stored articles/source; latest 200 articles shown across the account. Search/filter apply to that bounded result, not all historical content. Dashboard bodies are 2,000-character previews; a separate authenticated query loads one full body (50,000 characters max). Full sources pause with a visible capacity error rather than delete history. There is no retention expansion, OPML, archive migration/export, newsletter ingestion, saved-links capture, billing, native iOS or offline sync in this slice.
 

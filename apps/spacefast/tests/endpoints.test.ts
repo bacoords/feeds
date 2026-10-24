@@ -23,8 +23,8 @@ test('authenticated app identity does not authorize worker operations', async ()
   }
   h.close();
 });
-test('native capsule declares authenticated app, tables and concrete callable handlers', () => {
-  assert.equal(app.auth.requireSignIn, true);
+test('native capsule leaves endpoint auth to handlers and declares concrete reader handlers', () => {
+  assert.equal(app.auth.requireSignIn, false);
   assert.deepEqual(Object.keys(app.schema).sort(), ['articles','jobs','sources']);
   assert.deepEqual(Object.keys(app.queries).sort(), ['article','dashboard']);
   assert.equal(typeof app.mutations.addSource, 'function');
