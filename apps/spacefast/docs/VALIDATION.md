@@ -1,0 +1,36 @@
+# Prototype verification record
+
+Baseline: `bacoords/feeds` main `a4b9cd386630f8f24cbe9c62bcb6fa1b909f53a8`. Original plugin files, root dependency manifests, PHP and WordPress UI are preserved. Only `apps/spacefast/` and a scoped CI workflow are added.
+
+## Passed locally
+
+- ESLint and strict TypeScript across UI, server, worker, scripts and tests.
+- Unit/contract tests for guest rejection and cross-user read/mutation isolation; independent read/star state and content upserts; idempotent add/refresh/result handling; missed dispatches, transient retries, lease expiry, restart persistence, stale lease fencing and transaction rollback in the test harness; conditional HTTP responses; bounded dashboard/details and storage limits.
+- Ingestion tests for DNS/IP classification and pinning, TLS hostname checks, redirects/rebinding, private/cloud-metadata ranges, header injection, response/deadline limits, compression rejection, DTD/entities, malformed/deep XML, RSS/Atom/RDF, stable source-scoped IDs, plaintext output and payload budgets.
+- React UI state tests and real React server-render tests demonstrating article markup stays escaped.
+- Vite production build with no `wp` globals; native Zero compiler including explicit schema/index parity assertions, three tables, native queries/mutations and worker endpoints.
+- Official `spacefast` CLI 0.5 framework+Zero assembly exercised locally, including Vite index/assets plus server/runtime metadata and migrations. Configuration dry-run accepted.
+- Locked dependency audit repeated after transitive fixes. See the PR's final check output for the exact count/date; audit results change over time.
+
+## Not yet established
+
+- Browser screenshots, keyboard-only use, 320px, 200% zoom and both themes. Local Chromium was unable to start because the executor rejected socket creation; an approved retry failed environment mount setup. CSS/static accessibility review is not visual verification. Validate the exact private deployed version, not a different mocked artifact.
+- Native app login, callback, interrupted login/retry, logout, expiry/revocation and two real user accounts. A connected Spacefast management account does not establish these.
+- Hosted QuickJS handler execution, MySQL uniqueness/locking/isolation, concurrent add/claim/result behavior, transaction rollback, data migration and export/restore. The SQLite harness serializes transactions and is not a MySQL simulator.
+- Actual external feed network fetches, deployed worker endpoint authorization/limits, worker deployment and credential rotation. Network tests use injected transports.
+- Live scheduled polling. There is no active cron or worker; source activation fails closed by default.
+- Full WordPress regression test/build. No original plugin file is changed, and its existing tests/build are not represented as passing.
+
+## Required before enabling ingestion
+
+1. Verify native app sessions and every ownership boundary using two independent identities. Reject guests, invalid/expired sessions and cross-user IDs.
+2. Validate source/job uniqueness and competing claims against the actual database. Add supported unique constraints/atomic locking or a verified single-consumer guarantee. Do not infer them from transaction-shaped handlers or unit tests.
+3. Prove rollback of a result that fails midway and replay rejection across pause/delete/restart. Test large inputs against actual response/request limits.
+4. Verify app-scoped secret bindings and narrow worker endpoints, including missing/wrong secret, unexpected cookies, redirects, wrong/stale leases and redacted logs. Use an egress-restricted Node host. Do not trust a request header as scheduler identity without a documented, tested edge contract.
+5. Exercise a real HTTPS RSS and Atom feed, redirects, conditional fetch, retry and worker crash recovery; show attempt/success/next-check timestamps accurately.
+6. Demonstrate backup/export and restore before importing valuable reading history. OPML alone does not preserve history or stars.
+7. Measure signed-in bundle performance and UI accessibility on the actual private version. DataViews is a relatively large dependency: initial frontend approximately153KB gzip plus the lazy reader approximately253KB gzip (exact final hashes/sizes from build output).
+
+## Design review
+
+No saved team design system was available, so design-system conformance cannot be marked passed. The user's existing WordPress UI language governs the implementation. Source review follows the available front-end standards: semantic landmarks, clear labels, focus states, responsive CSS and light/dark tokens; no invented testimonials, public metrics or decorative landing-page claims. The mandatory deployed visual/keyboard checks remain explicit gates.

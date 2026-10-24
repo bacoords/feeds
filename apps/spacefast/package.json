@@ -1,0 +1,51 @@
+{
+  "name": "feeds-spacefast",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "dependencies": {
+    "@spacefast/zero": "0.8.0",
+    "@wordpress/components": "30.8.0",
+    "@wordpress/dataviews": "10.3.0",
+    "@wordpress/i18n": "6.8.0",
+    "@wordpress/icons": "11.2.0",
+    "fast-xml-parser": "5.11.2",
+    "ipaddr.js": "2.5.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "sanitize-html": "2.18.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@spacefast/zero-compile": "0.8.0",
+    "@types/node": "26.6.5",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@types/sanitize-html": "2.16.2",
+    "@vitejs/plugin-react": "6.1.2",
+    "eslint": "10.13.0",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.0",
+    "vite": "8.3.5"
+  },
+  "scripts": {
+    "build": "vite build",
+    "build:zero": "node --import tsx scripts/build-zero.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint frontend server shared worker tests scripts",
+    "test": "node --import tsx --test tests/*.test.ts frontend/*.test.ts",
+    "check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run build:zero",
+    "worker": "node --import tsx worker/cli.ts"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "overrides": {
+    "uuid": "11.1.1",
+    "zod": "4.6.6",
+    "happy-dom": "21.0.4",
+    "esbuild": "0.28.2"
+  },
+  "license": "GPL-2.0-or-later"
+}
