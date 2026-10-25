@@ -624,3 +624,74 @@ test('uncaptured pointer exit and window blur clear interrupted gestures', async
   await pointer(row, 'pointerup', 280, 150);
   assert.equal(row.querySelector('.article-star'), null);
 });
+
+// Happy DOM does not generate implicit touch capture or its transfer events.
+// Model the child -> stationary owner transfer, rather than mouse-only drags.
+test('descendant implicit touch-capture loss does not cancel a row swipe', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  const owner = row.closest('.swipe-row') as HTMLElement;
+  const title = row.querySelector('.article-title')!;
+  const captures: number[] = [];
+  Object.defineProperty(owner, 'setPointerCapture', { configurable: true, value: (id: number) => captures.push(id) });
+  await pointer(title, 'pointerdown', 180, 150);
+  assert.deepEqual(captures, [], 'ordinary taps retain the original button target');
+  await pointer(title, 'pointermove', 220, 152);
+  assert.deepEqual(captures, [1]);
+  assert.match(row.style.transform, /translateX\(40px\)/);
+  await pointer(title, 'lostpointercapture', 220, 152);
+  assert.match(row.style.transform, /translateX\(40px\)/, 'old child capture loss must not snap back');
+  await pointer(owner, 'pointermove', 275, 154);
+  await pointer(owner, 'pointerup', 275, 154);
+  await pointerClick(row);
+  assert.ok(row.querySelector('.article-star'));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.deepEqual(captures, [1], 'no repeated capture transfer during movement');
+});
+
+test('only the active owner and pointer can cancel through lost capture', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  const owner = row.closest('.swipe-row')!;
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(owner, 'pointermove', 85, 150);
+  await pointer(owner, 'lostpointercapture', 85, 150, { pointerId: 7 });
+  await pointer(owner, 'pointercancel', 85, 150, { pointerId: 7 });
+  assert.match(row.style.transform, /translateX\(-95px\)/);
+  await pointer(owner, 'lostpointercapture', 85, 150);
+  assert.match(row.style.transform, /translateX\(0px\)/);
+  await pointer(owner, 'pointerup', 85, 150);
+  await pointerClick(row);
+  assert.ok(!row.classList.contains('is-read'));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+});
+
+test('touch boundary events and zero crossing retain a stable gesture surface', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  const title = row.querySelector('.article-title')!;
+  const owner = row.closest('.swipe-row')!;
+  await pointer(title, 'pointerdown', 180, 150);
+  await pointer(owner, 'pointermove', 220, 150);
+  await pointer(title, 'pointerout', 220, 150, { relatedTarget: document.body });
+  assert.match(row.style.transform, /translateX\(40px\)/);
+  await pointer(owner, 'pointermove', 180, 150);
+  assert.ok(row.classList.contains('is-swiping'), 'no snap-back transition while finger crosses origin');
+  await pointer(owner, 'pointermove', 85, 150);
+  await pointer(owner, 'pointerup', 85, 150);
+  assert.ok(row.classList.contains('is-read'));
+  assert.ok(!row.classList.contains('is-swiping'));
+});
+
+test('drawer child capture loss does not interrupt touch dismissal', async () => {
+  await render(createElement(SamplePreview));
+  await click(articleRows()[1]);
+  const title = document.querySelector('.article-content h2')!;
+  const owner = document.querySelector('.drawer-swipe-region')!;
+  await pointer(title, 'pointerdown', 100, 200);
+  await pointer(title, 'pointermove', 145, 203);
+  await pointer(title, 'lostpointercapture', 145, 203);
+  await pointer(owner, 'pointermove', 205, 205);
+  await pointer(owner, 'pointerup', 205, 205);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+});

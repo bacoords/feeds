@@ -4,7 +4,7 @@ export const SWIPE_THRESHOLD = 72;
 const LOCK_DISTANCE = 12;
 const EDGE_GUTTER = 24;
 type Direction = 'left' | 'right';
-type Gesture = { id: number; x: number; y: number; dx: number; axis: 'pending' | 'horizontal' | 'vertical'; moved: boolean };
+type Gesture = { id: number; owner: HTMLElement; pointerType: string; captured: boolean; x: number; y: number; dx: number; axis: 'pending' | 'horizontal' | 'vertical'; moved: boolean };
 
 /** Pointer gestures leave native vertical scrolling/pinch zoom to the browser.
  * No action runs until release, and a drag can never also activate a row click.
@@ -43,7 +43,7 @@ export function useSwipe({ onSwipe, disabled = false, rightOnly = false, ignoreI
       // Leave screen-edge swipes to browser navigation. No preventDefault here.
       if (event.clientX < EDGE_GUTTER || event.clientX > window.innerWidth - EDGE_GUTTER) return;
       if (ignoreInteractive && (event.target as Element).closest('button, a, input, select, textarea, [contenteditable="true"]')) return;
-      gesture.current = { id: event.pointerId, x: event.clientX, y: event.clientY, dx: 0, axis: 'pending', moved: false };
+      gesture.current = { id: event.pointerId, owner: event.currentTarget, pointerType: event.pointerType, captured: false, x: event.clientX, y: event.clientY, dx: 0, axis: 'pending', moved: false };
       setTracking(true);
     },
     onPointerMove(event: PointerEvent<HTMLElement>) {
@@ -58,8 +58,13 @@ export function useSwipe({ onSwipe, disabled = false, rightOnly = false, ignoreI
       if (current.axis !== 'horizontal') return;
       current.dx = rightOnly ? Math.max(0, dx) : dx;
       suppressClick.current = true;
-      // Capture only after horizontal intent is established; scrolling is native.
-      event.currentTarget.setPointerCapture?.(event.pointerId);
+      // Keep taps on the original button. Only a deliberate horizontal drag
+      // transfers capture to the stationary surface (never the moving text).
+      if (!current.captured) {
+        try { event.currentTarget.setPointerCapture?.(event.pointerId); current.captured = true; } catch { cancel(); return; }
+      }
+      // Capture does not disable native scrolling: touch-action still gives
+      // vertical pan/pinch to the browser, which can cancel this gesture.
       if (event.cancelable) event.preventDefault();
       setOffset(Math.max(-112, Math.min(112, current.dx)));
     },
@@ -74,14 +79,21 @@ export function useSwipe({ onSwipe, disabled = false, rightOnly = false, ignoreI
       if (action) onSwipe(action);
     },
     onPointerLeave(event: PointerEvent<HTMLElement>) {
-      if (gesture.current?.id === event.pointerId && !event.currentTarget.hasPointerCapture?.(event.pointerId)) cancel();
+      if (gesture.current?.id === event.pointerId && gesture.current.pointerType === 'mouse' && !event.currentTarget.hasPointerCapture?.(event.pointerId)) cancel();
     },
-    onPointerCancel: cancel,
-    onLostPointerCapture: cancel,
+    onPointerCancel(event: PointerEvent<HTMLElement>) {
+      if (gesture.current?.id === event.pointerId) cancel();
+    },
+    onLostPointerCapture(event: PointerEvent<HTMLElement>) {
+      // A descendant's implicit capture transfer bubbles. It is not loss of
+      // OUR capture; canceling here made actual touch swipes snap back.
+      const current = gesture.current;
+      if (current && current.id === event.pointerId && event.target === current.owner) cancel();
+    },
     onClickCapture(event: MouseEvent<HTMLElement>) {
       // Keyboard activation (detail=0) remains available even just after a drag.
       if (suppressClick.current && event.detail !== 0) { event.preventDefault(); event.stopPropagation(); }
     },
   };
-  return { handlers, offset, ready: Math.abs(offset) >= SWIPE_THRESHOLD };
+  return { handlers, offset, tracking, ready: Math.abs(offset) >= SWIPE_THRESHOLD };
 }

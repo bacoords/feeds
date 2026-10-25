@@ -248,12 +248,12 @@ p, h1, h2, dd, .article-title, .article-source, .source-nav { overflow-wrap: any
 .article-detail-loading p { margin: 0; font-size: 14px; }
 
 /* Horizontal gestures reveal action labels without moving surrounding layout. */
-.swipe-row { position: relative; overflow: clip; background: var(--accent-soft); }
+.swipe-row { position: relative; touch-action: pan-y pinch-zoom; overflow: clip; background: var(--accent-soft); }
 .swipe-feedback { position: absolute; inset: 0; display: flex; align-items: center; gap: 6px; padding: 16px; color: var(--accent); font-size: 13px; font-weight: 600; pointer-events: none; }
 .swipe-feedback.swipe-left { justify-content: flex-end; }
 .swipe-row.is-ready .swipe-feedback { text-decoration: underline; text-underline-offset: 4px; }
 .article-row { position: relative; }
-.article-row.is-swiping { user-select: none; }
+.article-row { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .drawer-swipe-region { position: relative; overflow: clip; touch-action: pan-y pinch-zoom; }
 .drawer-swipe-content { position: relative; background: var(--paper); }
 .drawer-swipe-feedback { position: absolute; top: 28px; left: 16px; font-size: 13px; color: var(--accent); pointer-events: none; }
