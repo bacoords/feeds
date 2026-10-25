@@ -36,7 +36,7 @@ test('article row is a full-width native click target without moving or overlayi
   assert.match(row, /display:\s*block;/);
   assert.match(row, /width:\s*100%;/);
   assert.match(row, /min-width:\s*0;/);
-  assert.match(row, /touch-action:\s*pan-y;/);
+  assert.match(row, /touch-action:\s*pan-y pinch-zoom;/);
   assert.match(row, /border-radius:\s*0;/);
   assert.doesNotMatch(workspace, /onTouchStart|onPointerDown|onMouseDown/,
     'opening belongs to native click, not the beginning of a scroll gesture');

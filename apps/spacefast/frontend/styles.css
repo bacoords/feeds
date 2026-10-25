@@ -95,7 +95,7 @@ p, h1, h2, dd, .article-title, .article-source, .source-nav { overflow-wrap: any
 .reader-surface { background: var(--paper); min-width: 0; }
 .article-list { list-style: none; padding: 0; margin: 0; }
 .article-list > li { margin: 0; padding: 0; }
-.article-row { display: block; width: 100%; min-width: 0; padding: 20px 16px 24px; border: 0; border-radius: 0; background: transparent; color: var(--ink); font: inherit; text-align: left; touch-action: pan-y; }
+.article-row { display: block; width: 100%; min-width: 0; padding: 20px 16px 24px; border: 0; border-radius: 0; background: var(--paper); color: var(--ink); font: inherit; text-align: left; touch-action: pan-y pinch-zoom; }
 .article-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; background: var(--canvas); }
 @media (hover: hover) { .article-row:hover { background: var(--canvas); } }
 .article-title { display: block; font-size: 19px; font-weight: 650; line-height: 1.35; letter-spacing: -.2px; color: var(--ink); margin-bottom: 6px; }
@@ -246,3 +246,18 @@ p, h1, h2, dd, .article-title, .article-source, .source-nav { overflow-wrap: any
 .article-content > .app-notice { margin-bottom: 24px; }
 .article-detail-loading { display: flex; align-items: center; gap: 12px; color: var(--muted); padding: 36px 0; }
 .article-detail-loading p { margin: 0; font-size: 14px; }
+
+/* Horizontal gestures reveal action labels without moving surrounding layout. */
+.swipe-row { position: relative; overflow: clip; background: var(--accent-soft); }
+.swipe-feedback { position: absolute; inset: 0; display: flex; align-items: center; gap: 6px; padding: 16px; color: var(--accent); font-size: 13px; font-weight: 600; pointer-events: none; }
+.swipe-feedback.swipe-left { justify-content: flex-end; }
+.swipe-row.is-ready .swipe-feedback { text-decoration: underline; text-underline-offset: 4px; }
+.article-row { position: relative; }
+.article-row.is-swiping { user-select: none; }
+.drawer-swipe-region { position: relative; overflow: clip; touch-action: pan-y pinch-zoom; }
+.drawer-swipe-content { position: relative; background: var(--paper); }
+.drawer-swipe-feedback { position: absolute; top: 28px; left: 16px; font-size: 13px; color: var(--accent); pointer-events: none; }
+.drawer-swipe-feedback.is-ready { font-weight: 700; }
+@media (prefers-reduced-motion: no-preference) {
+  .article-row:not(.is-swiping), .drawer-swipe-content:not(.is-swiping) { transition: transform 160ms ease-out; }
+}

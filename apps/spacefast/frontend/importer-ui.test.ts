@@ -459,3 +459,168 @@ test('sample article error remains dismissible and never mounts a native article
   assert.equal(document.querySelector('[role="dialog"]'), null);
   assert.equal(networkAttempts, 0);
 });
+
+// Synthetic PointerEvents verify the gesture state machine, not iOS physics.
+async function pointer(element: Element, type: string, x: number, y: number, extra: Record<string, unknown> = {}) {
+  await act(async () => { element.dispatchEvent(new dom.PointerEvent(type, { bubbles: true, cancelable: true, pointerId: 1, pointerType: 'touch', isPrimary: true, button: 0, clientX: x, clientY: y, ...extra }) as unknown as Event); });
+}
+async function swipe(element: Element, dx: number, dy = 0) {
+  await pointer(element, 'pointerdown', 180, 150);
+  await pointer(element, 'pointermove', 180 + dx, 150 + dy);
+  await pointer(element, 'pointerup', 180 + dx, 150 + dy);
+}
+async function pointerClick(element: Element) {
+  await act(async () => { element.dispatchEvent(new dom.MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }) as unknown as Event); });
+}
+
+test('list swipes set read left and star right without opening or toggling existing state', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  assert.ok(!row.classList.contains('is-read'));
+  assert.equal(row.querySelector('.article-star'), null);
+  await swipe(row, -90);
+  await pointerClick(row);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.ok(row.classList.contains('is-read'));
+  await swipe(row, -90);
+  assert.ok(row.classList.contains('is-read'));
+  await swipe(row, 90);
+  await pointerClick(row);
+  assert.ok(row.querySelector('.article-star'));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  await swipe(row, 90);
+  assert.ok(row.querySelector('.article-star'), 'repeat swipe never unstars');
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(row, 'pointerup', 180, 150);
+  await pointerClick(row);
+  assert.ok(document.querySelector('[role="dialog"]'), 'next ordinary tap still opens');
+});
+
+test('short, vertical, diagonal, reversed and canceled gestures never mutate or activate row', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  for (const [dx, dy] of [[35, 0], [-35, 0], [10, 100], [90, 95]]) {
+    await swipe(row, dx, dy);
+    await pointerClick(row);
+    assert.equal(document.querySelector('[role="dialog"]'), null);
+    assert.ok(!row.classList.contains('is-read'));
+    assert.equal(row.querySelector('.article-star'), null);
+  }
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(row, 'pointermove', 270, 150);
+  await pointer(row, 'pointermove', 190, 150);
+  await pointer(row, 'pointerup', 190, 150);
+  assert.equal(row.querySelector('.article-star'), null);
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(row, 'pointermove', 90, 150);
+  await pointer(row, 'pointercancel', 90, 150);
+  await pointer(row, 'pointerup', 90, 150);
+  assert.ok(!row.classList.contains('is-read'));
+  assert.match(row.style.transform, /translateX\(0px\)/);
+});
+
+test('vertical lock cannot turn into a horizontal action and a second pointer cancels', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(row, 'pointermove', 185, 180);
+  await pointer(row, 'pointermove', 280, 185);
+  await pointer(row, 'pointerup', 280, 185);
+  assert.equal(row.querySelector('.article-star'), null);
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(row, 'pointermove', 280, 150);
+  await pointer(document.body, 'pointerdown', 230, 180, { pointerId: 2, isPrimary: false });
+  await pointer(row, 'pointerup', 280, 150);
+  await pointerClick(row);
+  assert.equal(row.querySelector('.article-star'), null);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+});
+
+test('screen edge gestures do not trigger app actions and keyboard click still opens', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  await pointer(row, 'pointerdown', 8, 150);
+  await pointer(row, 'pointermove', 130, 150);
+  await pointer(row, 'pointerup', 130, 150);
+  assert.equal(row.querySelector('.article-star'), null);
+  await swipe(row, 30);
+  await click(row); // detail=0 is native keyboard/programmatic activation.
+  assert.ok(document.querySelector('[role="dialog"]'));
+});
+
+test('article swipe-right closes without changing state; left/vertical/control gestures do not close', async () => {
+  await render(createElement(SamplePreview));
+  await click(articleRows()[1]);
+  const drawer = document.querySelector('[role="dialog"]');
+  assert.ok(drawer);
+  const content = drawer.querySelector('.article-content');
+  assert.ok(content);
+  await swipe(content, -100);
+  assert.ok(document.querySelector('[role="dialog"]'));
+  await swipe(content, 10, 100);
+  assert.ok(document.querySelector('[role="dialog"]'));
+  await swipe(button('Star', drawer), 100);
+  assert.ok(document.querySelector('[role="dialog"]'));
+  await swipe(content, 100);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.ok(!articleRows()[1].classList.contains('is-read'));
+  assert.equal(articleRows()[1].querySelector('.article-star'), null);
+});
+
+test('pending rows ignore swipe mutations and failed saves roll back optimistic state', async () => {
+  const { WorkspaceView } = await import('./Workspace');
+  const { createSampleDashboard } = await import('./sample-data');
+  const saving = deferred<unknown>();
+  let calls = 0;
+  const dashboard = createSampleDashboard();
+  const noOp = async () => {};
+  await render(createElement(WorkspaceView, {
+    displayName: 'Test', dashboard, renderDrawer: () => createElement('div', { role: 'dialog' }, 'Opened'),
+    actions: { mutateArticle: async () => { calls++; return saving.promise; }, addSource: noOp, updateSource: noOp, deleteSource: noOp, refreshSource: noOp, seedDemo: noOp, importOpml: noOp, signOut: noOp },
+  }));
+  const row = articleRows()[1];
+  await swipe(row, -100);
+  assert.ok(row.classList.contains('is-read'), 'optimistic read update');
+  assert.equal(row.getAttribute('aria-busy'), 'true');
+  await swipe(row, 100);
+  await pointerClick(row);
+  assert.equal(document.querySelector('[role="dialog"]'), null, 'pending swipe cannot also open');
+  assert.equal(calls, 1, 'pending gesture cannot race a second mutation');
+  await act(async () => saving.reject(new Error('Save failed')));
+  assert.ok(!row.classList.contains('is-read'), 'failure restores original read state');
+  assert.equal(row.querySelector('.article-star'), null);
+  assert.match(document.querySelector('[role="alert"]')?.textContent ?? '', /Save failed/);
+});
+
+
+test('release coordinates recheck threshold and direction instead of stale pointermove', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(row, 'pointermove', 280, 150);
+  await pointer(row, 'pointerup', 190, 150);
+  assert.equal(row.querySelector('.article-star'), null);
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(row, 'pointermove', 80, 150);
+  await pointer(row, 'pointerup', 80, 290);
+  assert.ok(!row.classList.contains('is-read'), 'large vertical release cancels action');
+});
+
+
+test('uncaptured pointer exit and window blur clear interrupted gestures', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  await pointer(row, 'pointerdown', 180, 150, { pointerType: 'mouse' });
+  await pointer(row, 'pointermove', 182, 180, { pointerType: 'mouse' });
+  await pointer(row, 'pointerout', 182, 280, { pointerType: 'mouse', relatedTarget: document.body });
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(row, 'pointerup', 180, 150);
+  await pointerClick(row);
+  assert.ok(document.querySelector('[role="dialog"]'), 'next real click opens after leaving row');
+  await click(button('Close panel'));
+  await pointer(row, 'pointerdown', 180, 150);
+  await pointer(row, 'pointermove', 280, 150);
+  await act(async () => { window.dispatchEvent(new dom.Event('blur') as unknown as Event); });
+  await pointer(row, 'pointerup', 280, 150);
+  assert.equal(row.querySelector('.article-star'), null);
+});
