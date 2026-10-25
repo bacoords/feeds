@@ -142,7 +142,7 @@ export function WorkspaceView({ displayName, dashboard, actions: api, renderDraw
         <Button className="mobile-nav-toggle" icon={listView} label="Choose feed" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)} />
         <h1>{heading}</h1>
         <div className="header-actions">
-          {tab === 'reader' && <Button icon={search} label="Search articles" aria-expanded={searchOpen} onClick={() => setSearchOpen(!searchOpen)} />}
+          {tab === 'reader' && <Button icon={search} label="Search articles" aria-expanded={searchOpen} onClick={() => { if (searchOpen) setQuery(''); setSearchOpen(!searchOpen); }} />}
           <Button icon={moreVertical} label="Reader options" onClick={() => setOptionsOpen(true)} />
         </div>
       </header>

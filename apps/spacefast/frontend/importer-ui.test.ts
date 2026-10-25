@@ -376,6 +376,11 @@ test('search is opt-in, searches article content and cancellation restores the l
   await click(button('Cancel', document.querySelector('.reader-search')!));
   assert.equal(document.querySelector('.reader-search'), null);
   assert.equal(articleRows().length, 40);
+  await click(button('Search articles'));
+  await setSearch('does-not-exist-in-the-sample');
+  await click(button('Search articles'));
+  assert.equal(document.querySelector('.reader-search'), null);
+  assert.equal(articleRows().length, 40, 'collapsing search must not leave a hidden active query');
 });
 
 test('feed navigation, read filtering and sort work without DataViews', async () => {
