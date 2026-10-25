@@ -302,49 +302,150 @@ test('theme selection propagates light/dark state and remains independent from s
 });
 
 
-test('isolated sample fixture opens and closes articles repeatedly without changing read/star state or requesting account data', async () => {
+function articleRows() { return [...document.querySelectorAll<HTMLButtonElement>('.article-row')]; }
+function sampleStateSelector() {
+  const selector = [...document.querySelectorAll('select')].find(item => [...item.options].some(option => option.value === 'sample'));
+  assert.ok(selector);
+  return selector;
+}
+async function selectValue(selector: HTMLSelectElement, value: string) {
+  await act(async () => { selector.value = value; selector.dispatchEvent(new dom.Event('change', { bubbles: true }) as unknown as Event); });
+}
+async function setSearch(value: string) {
+  const input = document.querySelector<HTMLInputElement>('.reader-search input');
+  assert.ok(input);
+  const setter = Object.getOwnPropertyDescriptor(dom.HTMLInputElement.prototype, 'value')?.set;
+  assert.ok(setter);
+  await act(async () => { setter.call(input, value); input.dispatchEvent(new dom.Event('input', { bubbles: true }) as unknown as Event); });
+}
+
+test('sample reader starts list-first with secondary UI collapsed and semantic row buttons', async () => {
   await render(createElement(SamplePreview));
-  assert.match(document.querySelector('.workspace-subtitle')?.textContent ?? '', /45 articles/);
-  assert.match(document.querySelector('.notice-stack')?.textContent ?? '', /Synthetic articles only/);
+  assert.equal(document.querySelector('h1')?.textContent, 'All');
+  assert.match(document.querySelector('.reader-status')?.textContent ?? '', /Sample articles.*not saved/);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.querySelector('.reader-search'), null);
+  assert.equal(document.querySelector('.workspace-kicker, .workspace-subtitle'), null);
+  const tools = document.querySelector<HTMLDetailsElement>('.sample-preview-tools');
+  assert.ok(tools);
+  assert.equal(tools.open, false);
+  assert.ok(document.querySelector('.app-shell')!.compareDocumentPosition(tools) & Node.DOCUMENT_POSITION_FOLLOWING, 'preview controls follow the reader');
+  assert.equal(articleRows().length, 40);
+  for (const row of articleRows()) {
+    assert.equal(row.tagName, 'BUTTON');
+    assert.equal(row.tabIndex, 0, 'native button is keyboard focusable');
+    assert.equal(row.getAttribute('aria-label'), row.querySelector('.article-title')?.textContent);
+    assert.equal(row.querySelector('button, a'), null, 'one interactive target, without nested read/open controls');
+    assert.ok(row.parentElement?.matches('li'));
+  }
+  assert.equal(document.querySelector('.article-list')?.tagName, 'UL');
+  assert.ok(![...document.querySelectorAll('button')].some(item => /^(Open|Read)( article)?$/.test(item.textContent?.trim() ?? '')));
+  assert.ok(![...document.querySelectorAll('h1, h2, button')].some(item => item.textContent?.trim() === 'Library'));
+});
+
+test('whole-row and descendant clicks open immediately and closing preserves read/star state', async () => {
+  await render(createElement(SamplePreview));
   for (let attempt = 0; attempt < 2; attempt++) {
-    const title = document.querySelector<HTMLElement>('.article-title');
-    assert.ok(title);
-    const row = title.closest('[role="row"]');
+    const row = articleRows()[0];
     assert.ok(row);
-    await click(button('Open article', row));
+    // HappyDOM validates bubbling/state, not native keyboard activation or touch scrolling.
+    const target = attempt ? row.querySelector<HTMLElement>('.article-excerpt') : row;
+    assert.ok(target);
+    await click(target);
     const drawer = document.querySelector('[role="dialog"]');
-    assert.ok(drawer, 'the rendered article action opens the drawer');
+    assert.ok(drawer, 'first click opens the reader, with no intermediate selection');
     assert.match(drawer.querySelector('.article-reading-status')?.textContent ?? '', /Unread.*Starred/);
     assert.match(drawer.querySelector('.article-content')?.textContent ?? '', /synthetic sample article 1/);
     await click(button('Close panel', drawer));
     assert.equal(document.querySelector('[role="dialog"]'), null);
   }
-  assert.match(document.querySelector('.workspace-subtitle')?.textContent ?? '', /45 articles/);
+  assert.equal(articleRows().length, 40);
   assert.equal(networkAttempts, 0);
+});
+
+test('search is opt-in, searches article content and cancellation restores the list', async () => {
+  await render(createElement(SamplePreview));
+  await click(button('Search articles'));
+  assert.equal(button('Search articles').getAttribute('aria-expanded'), 'true');
+  await setSearch('synthetic sample article 45,');
+  assert.equal(articleRows().length, 1);
+  assert.match(articleRows()[0].textContent ?? '', /45\./);
+  await setSearch('does-not-exist-in-the-sample');
+  assert.equal(articleRows().length, 0);
+  assert.match(document.querySelector('.empty-filter')?.textContent ?? '', /No articles found/);
+  await click(button('Cancel', document.querySelector('.reader-search')!));
+  assert.equal(document.querySelector('.reader-search'), null);
+  assert.equal(articleRows().length, 40);
+});
+
+test('feed navigation, read filtering and sort work without DataViews', async () => {
+  await render(createElement(SamplePreview));
+  await click(button('Choose feed'));
+  let dialog = document.querySelector('[role="dialog"]');
+  assert.ok(dialog);
+  assert.equal(dialog.querySelector('h2')?.textContent, 'Feeds');
+  const star = [...dialog.querySelectorAll<HTMLElement>('.nav-item')].find(item => item.textContent?.startsWith('Starred'));
+  assert.ok(star);
+  await click(star);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(document.querySelector('h1')?.textContent, 'Starred');
+  assert.equal(articleRows().length, 7);
+  await click(button('Reader options'));
+  dialog = document.querySelector('[role="dialog"]');
+  assert.ok(dialog);
+  const read = [...dialog.querySelectorAll('select')].find(item => [...item.options].some(option => option.value === 'read'));
+  assert.ok(read);
+  await selectValue(read, 'read');
+  await click(button('Done', dialog));
+  assert.equal(articleRows().length, 2);
+  assert.ok(articleRows().every(row => row.classList.contains('is-read')));
+  await click(button('Clear filter'));
+  assert.equal(articleRows().length, 7);
+  const firstNewest = articleRows()[0].getAttribute('aria-label');
+  await click(button('Reader options'));
+  dialog = document.querySelector('[role="dialog"]');
+  assert.ok(dialog);
+  const sort = [...dialog.querySelectorAll('select')].find(item => [...item.options].some(option => option.value === 'oldest'));
+  assert.ok(sort);
+  await selectValue(sort, 'oldest');
+  await click(button('Done', dialog));
+  assert.notEqual(articleRows()[0].getAttribute('aria-label'), firstNewest);
+  assert.match(articleRows()[0].textContent ?? '', /43\./);
+});
+
+test('show more appends articles and options route into a cancellable importer', async () => {
+  await render(createElement(SamplePreview));
+  await click(button('Show more articles'));
+  assert.equal(articleRows().length, 45);
+  assert.ok(![...document.querySelectorAll('button')].some(item => item.textContent?.trim() === 'Show more articles'));
+  await click(button('Reader options'));
+  await click(button('Import OPML'));
+  assert.equal(document.querySelectorAll('[role="dialog"]').length, 1, 'options closes before importer opens');
+  assert.ok(document.querySelector('#opml-file'));
+  await click(button('Cancel'));
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(articleRows().length, 45);
 });
 
 test('isolated sample fixture renders empty/loading states and resets to synthetic articles', async () => {
   await render(createElement(SamplePreview));
-  const selector = [...document.querySelectorAll('select')].find(item => [...item.options].some(option => option.value === 'sample'));
-  assert.ok(selector);
-  await act(async () => { selector.value = 'empty'; selector.dispatchEvent(new dom.Event('change', { bubbles: true }) as unknown as Event); });
+  const selector = sampleStateSelector();
+  await selectValue(selector, 'empty');
   assert.match(document.querySelector('.empty-library')?.textContent ?? '', /Make room for good reading/);
-  await act(async () => { selector.value = 'loading'; selector.dispatchEvent(new dom.Event('change', { bubbles: true }) as unknown as Event); });
-  assert.match(document.querySelector('.loading-state')?.textContent ?? '', /Loading your library/);
+  await selectValue(selector, 'loading');
+  assert.match(document.querySelector('.loading-state')?.textContent ?? '', /Loading articles/);
+  await click(button('Reader options'));
   assert.equal(isDisabled(button('Import OPML')), true);
+  await click(button('Done'));
   await click(button('Reset preview'));
-  assert.match(document.querySelector('.workspace-subtitle')?.textContent ?? '', /45 articles/);
-  assert.ok(document.querySelector('.article-title'));
+  assert.equal(articleRows().length, 40);
   assert.equal(networkAttempts, 0);
 });
 
-
 test('sample article error remains dismissible and never mounts a native article query', async () => {
   await render(createElement(SamplePreview));
-  const selector = [...document.querySelectorAll('select')].find(item => [...item.options].some(option => option.value === 'sample'));
-  assert.ok(selector);
-  await act(async () => { selector.value = 'error'; selector.dispatchEvent(new dom.Event('change', { bubbles: true }) as unknown as Event); });
-  await click(button('Open article'));
+  await selectValue(sampleStateSelector(), 'error');
+  await click(articleRows()[0]);
   const drawer = document.querySelector('[role="dialog"]');
   assert.ok(drawer);
   assert.match(drawer.textContent ?? '', /Sample error: this article is unavailable/);

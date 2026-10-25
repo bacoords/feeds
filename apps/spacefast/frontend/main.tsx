@@ -1,8 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import '@wordpress/theme/design-tokens.css';
-import '@wordpress/components/build-style/style.css';
-import '@wordpress/dataviews/build-style/style.css';
 import './styles.css';
 import App from './App';
 import { AppTheme } from './Theme';

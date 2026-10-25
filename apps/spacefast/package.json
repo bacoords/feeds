@@ -5,9 +5,6 @@
   "type": "module",
   "dependencies": {
     "@spacefast/zero": "0.8.0",
-    "@wordpress/components": "43.0.0",
-    "@wordpress/dataviews": "21.0.0",
-    "@wordpress/i18n": "7.0.0",
     "@wordpress/icons": "19.0.0",
     "@wordpress/theme": "3.0.0",
     "@wordpress/ui": "0.25.0",

@@ -20,13 +20,14 @@ export default function SamplePreview() {
   }), []);
   const shown = state === 'empty' ? { ...dashboard, articles: [], sources: [] } : state === 'loading' ? undefined : dashboard;
   return <>
-    <section className="sample-controls" aria-label="Sample preview controls">
+    <WorkspaceView displayName="Sample reader" dashboard={shown} actions={api} demo renderDrawer={props => <ArticleDrawerView key={props.article.id} {...props} detail={state === 'error' ? null : dashboard.articles.find(article => article.id === props.article.id)} error={state === 'error' ? 'Sample error: this article is unavailable. No account data was changed.' : props.error} />} />
+    <details className="sample-preview-tools"><summary>Sample preview settings</summary><section className="sample-controls" aria-label="Sample preview controls">
       <strong>UI test preview</strong>
       <label>Theme <select value={choice} onChange={event => setChoice(event.target.value as typeof choice)}><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></label>
-      <label>Reader state <select value={state} onChange={event => setState(event.target.value as typeof state)}><option value="sample">Sample articles</option><option value="empty">Empty library</option><option value="loading">Loading</option><option value="error">Article error</option></select></label>
+      <label>Reader state <select value={state} onChange={event => setState(event.target.value as typeof state)}><option value="sample">Sample articles</option><option value="empty">Empty reader</option><option value="loading">Loading</option><option value="error">Article error</option></select></label>
       <button onClick={() => { setDashboard(createSampleDashboard()); setState('sample'); }}>Reset preview</button>
       <a href="/">Exit preview</a>
-    </section>
-    <WorkspaceView displayName="Sample reader" dashboard={shown} actions={api} demo renderDrawer={props => <ArticleDrawerView key={props.article.id} {...props} detail={state === 'error' ? null : dashboard.articles.find(article => article.id === props.article.id)} error={state === 'error' ? 'Sample error: this article is unavailable. No account data was changed.' : props.error} />} />
+    </section></details>
+
   </>;
 }

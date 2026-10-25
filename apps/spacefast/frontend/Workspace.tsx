@@ -1,20 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Button, Modal, Notice, Spinner, TextControl, ToggleControl } from './controls';
-import { DataViews, filterSortAndPaginate, type Action, type Field, type View } from '@wordpress/dataviews';
-import { Icon, rss, starEmpty, starFilled, plus, cog, listView, unseen, seen, update, trash, external } from '@wordpress/icons';
+import { Icon, rss, starEmpty, starFilled, plus, cog, listView, unseen, seen, update, trash, external, search, moreVertical } from '@wordpress/icons';
 import { signOut, useMutation, useQuery } from '@spacefast/zero/react';
 import { applyArticleState, articlesInScope, dateLabel, safeExternalUrl, sourceStatus } from './state';
 import { ArticleBody, Brand, errorMessage } from './ui';
 import ImportOpmlModal from './ImportOpmlModal';
 import { SOURCE_LIMIT, type OpmlImportResult } from '../shared/opml';
 import type { Article, ArticleState, Dashboard, ReaderScope, Source } from './types';
-
-export const DEFAULT_VIEW: View = {
-  type: 'list', page: 1, perPage: 20, search: '', filters: [],
-  sort: { field: 'publishedAt', direction: 'desc' },
-  fields: ['sourceTitle', 'publishedAt', 'read', 'starred'],
-  titleField: 'title', descriptionField: 'excerpt',
-};
 
 export default function Workspace({ displayName }: { displayName: string }) {
   const dashboard = useQuery<Dashboard>('dashboard');
@@ -45,7 +37,12 @@ export function WorkspaceView({ displayName, dashboard, actions: api, renderDraw
   const { mutateArticle, addSource, updateSource, deleteSource, refreshSource, seedDemo } = api;
   const [tab, setTab] = useState<'reader' | 'sources'>('reader');
   const [scope, setScope] = useState<ReaderScope>('all');
-  const [view, setView] = useState<View>(DEFAULT_VIEW);
+  const [query, setQuery] = useState('');
+  const [readFilter, setReadFilter] = useState('all');
+  const [sortOrder, setSortOrder] = useState('newest');
+  const [visibleCount, setVisibleCount] = useState(40);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [optionsOpen, setOptionsOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -86,7 +83,7 @@ export function WorkspaceView({ displayName, dashboard, actions: api, renderDraw
   const starredCount = articles.filter((article) => article.starred).length;
   const workerConfigured = dashboard?.workerConfigured === true;
   const activeSource = scope.startsWith('source:') ? sources.find((source) => source.id === scope.slice(7)) : undefined;
-  const heading = tab === 'sources' ? 'Manage sources' : activeSource?.title ?? ({ all: 'All articles', unread: 'Unread', starred: 'Starred' }[scope as 'all' | 'unread' | 'starred'] || 'All articles');
+  const heading = tab === 'sources' ? 'Manage sources' : activeSource?.title ?? ({ all: 'All', unread: 'Unread', starred: 'Starred' }[scope as 'all' | 'unread' | 'starred'] || 'All');
 
   const run = useCallback(async (key: string, task: () => Promise<unknown>, message?: string) => {
     if (pendingRef.current.has(key)) return false;
@@ -106,34 +103,26 @@ export function WorkspaceView({ displayName, dashboard, actions: api, renderDraw
   }, [mutateArticle, overrides, run]);
 
   function navigate(nextScope: ReaderScope) {
-    setScope(nextScope); setTab('reader'); setView((current) => ({ ...current, page: 1, filters: [], search: '' })); setSidebarOpen(false);
+    setScope(nextScope); setTab('reader'); setQuery(''); setReadFilter('all'); setVisibleCount(40); setSidebarOpen(false);
   }
 
-  const fields = useMemo<Field<Article>[]>(() => [
-    { id: 'title', label: 'Article', enableGlobalSearch: true, enableHiding: false, render: ({ item }) => <span className={`article-title ${item.read ? 'is-read' : ''}`}>{!item.read && <span className="unread-dot" aria-label="Unread" />}{item.title || 'Untitled article'}</span> },
-    { id: 'excerpt', label: 'Excerpt', getValue: ({ item }) => item.bodyText.slice(0, 180), enableGlobalSearch: true, enableSorting: false, filterBy: false, render: ({ item }) => <span className="article-excerpt">{item.bodyText.slice(0, 180) || 'Open this article to read more.'}</span> },
-    { id: 'sourceTitle', label: 'Source', enableGlobalSearch: true, elements: sources.map((source) => ({ value: source.title, label: source.title })), render: ({ item }) => <span className="article-source">{item.sourceTitle}</span> },
-    { id: 'publishedAt', label: 'Published', getValue: ({ item }) => item.publishedAt ? new Date(item.publishedAt).getTime() : 0, render: ({ item }) => <span className="article-date">{dateLabel(item.publishedAt)}</span>, filterBy: false },
-    { id: 'read', label: 'Read status', type: 'boolean', elements: [{ value: false, label: 'Unread' }, { value: true, label: 'Read' }], filterBy: { operators: ['is'] }, render: ({ item }) => <span className="text-status">{item.read ? 'Read' : 'Unread'}</span> },
-    { id: 'starred', label: 'Star status', type: 'boolean', elements: [{ value: true, label: 'Starred' }, { value: false, label: 'Not starred' }], filterBy: { operators: ['is'] }, render: ({ item }) => <span className={item.starred ? 'starred-status' : 'muted'}>{item.starred ? 'Starred' : '—'}</span> },
-    { id: 'author', label: 'Author', enableGlobalSearch: true },
-  ], [sources]);
-  const actions = useMemo<Action<Article>[]>(() => [
-    { id: 'read-article', label: 'Open article', icon: external, isPrimary: true, callback: ([article]) => setSelectedId(article.id) },
-    { id: 'toggle-read', label: ([article]) => article?.read ? 'Mark unread' : 'Mark read', icon: seen, isEligible: (article) => !pending.has(`article:${article.id}`), callback: ([article]) => void changeArticle(article, { read: !article.read }) },
-    { id: 'toggle-star', label: ([article]) => article?.starred ? 'Remove star' : 'Star article', icon: starEmpty, isEligible: (article) => !pending.has(`article:${article.id}`), callback: ([article]) => void changeArticle(article, { starred: !article.starred }) },
-  ], [changeArticle, pending]);
   const scopedArticles = articlesInScope(articles, scope);
-  const { data, paginationInfo } = filterSortAndPaginate(scopedArticles, view, fields);
-  // A mutation or filter can remove the last item on the current page.
-  useEffect(() => {
-    if ((view.page ?? 1) > Math.max(1, paginationInfo.totalPages)) setView((current) => ({ ...current, page: Math.max(1, paginationInfo.totalPages) }));
-  }, [paginationInfo.totalPages, view.page]);
+  const filteredArticles = useMemo(() => {
+    const needle = query.trim().toLocaleLowerCase();
+    return articlesInScope(articles, scope).filter(article =>
+      (readFilter === 'all' || article.read === (readFilter === 'read')) &&
+      (!needle || [article.title, article.sourceTitle, article.author, article.bodyText].some(value => value?.toLocaleLowerCase().includes(needle)))
+    ).sort((a, b) => {
+      const difference = (Date.parse(b.publishedAt || '') || 0) - (Date.parse(a.publishedAt || '') || 0);
+      return sortOrder === 'oldest' ? -difference : difference;
+    });
+  }, [articles, scope, query, readFilter, sortOrder]);
+  const visibleArticles = filteredArticles.slice(0, visibleCount);
 
   const folders = [...new Set(sources.map((source) => source.folder || 'Your sources'))].sort();
   const sidebarContent = <>
       <div className="sidebar-brand"><Brand /></div>
-      <nav aria-label="Library">
+      <nav aria-label="Feeds">
         <NavItem label="All articles" icon={listView} active={tab === 'reader' && scope === 'all'} count={articles.length} onClick={() => navigate('all')} />
         <NavItem label="Unread" icon={unseen} active={tab === 'reader' && scope === 'unread'} count={unreadCount} onClick={() => navigate('unread')} />
         <NavItem label="Starred" icon={starEmpty} active={tab === 'reader' && scope === 'starred'} count={starredCount} onClick={() => navigate('starred')} />
@@ -147,18 +136,58 @@ export function WorkspaceView({ displayName, dashboard, actions: api, renderDraw
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to articles</a>
     <aside className="sidebar" aria-label="Reading navigation">{sidebarContent}</aside>
-    {sidebarOpen && <Modal title="Library" onRequestClose={() => setSidebarOpen(false)} className="library-dialog"><div className="sidebar mobile-sidebar">{sidebarContent}</div></Modal>}
+    {sidebarOpen && <Modal title="Feeds" onRequestClose={() => setSidebarOpen(false)} className="library-dialog"><div className="sidebar mobile-sidebar">{sidebarContent}</div></Modal>}
     <main className="workspace" id="main-content" tabIndex={-1}>
-      <header className="workspace-header"><div><Button className="mobile-nav-toggle" icon={listView} aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(!sidebarOpen)}>Library</Button><p className="workspace-kicker">Your reading space</p><h1>{heading}</h1><p className="workspace-subtitle">{tab === 'sources' ? `${sources.length} ${sources.length === 1 ? 'source' : 'sources'} · Organized your way` : `${scopedArticles.length} ${scopedArticles.length === 1 ? 'article' : 'articles'} · ${unreadCount} unread in your library`}</p></div><div className="header-actions"><Button variant="secondary" onClick={() => setImportOpen(true)} disabled={!dashboard}>Import OPML</Button><Button variant="primary" icon={plus} onClick={() => { setSidebarOpen(false); setAddOpen(true); }} disabled={!dashboard || sources.length >= SOURCE_LIMIT}>Add source</Button></div></header>
-      <div className="notice-stack" aria-live="polite">{demo && <Notice status="info" isDismissible={false}><strong>Sample preview.</strong> Synthetic articles only. Changes stay in this tab and reset on reload. No account data or network writes. <a href="/">Return to Feeds</a></Notice>}{error && <Notice status="error" onRemove={() => setError('')}>{error}</Notice>}{success && <Notice status="success" onRemove={() => setSuccess('')}>{success}</Notice>}{dashboard && !workerConfigured && <Notice status="warning" isDismissible={false}><strong>Live feeds aren’t connected yet.</strong> You can organize sources and try sample articles. Scheduled ingestion must be verified and enabled before sources can refresh.</Notice>}</div>
-      {!dashboard ? <div className="loading-state" aria-live="polite" aria-busy={!loadingDelayed}>{!loadingDelayed && <Spinner />}<h2>{loadingDelayed ? 'Your library is taking longer to load' : 'Loading your library'}</h2><p>{loadingDelayed ? 'The connection may be unavailable. Your saved articles are unchanged.' : 'Fetching your sources and reading history.'}</p>{loadingDelayed && <Button variant="secondary" onClick={() => window.location.reload()}>Reload and retry</Button>}</div> : tab === 'sources' ? <SourceManager sources={sources} workerConfigured={workerConfigured} pending={pending} onAdd={() => setAddOpen(true)} onToggle={(source) => void run(`source:${source.id}`, () => updateSource({ id: source.id, enabled: !source.enabled }), source.enabled ? 'Source paused.' : 'Source enabled.')} onRefresh={(source) => void run(`source:${source.id}`, () => refreshSource({ id: source.id }), 'Refresh queued. The next scheduled check will fetch this source.')} onDelete={setRemoveTarget} /> : !articles.length ? <EmptyLibrary onAdd={() => setAddOpen(true)} onDemo={() => void run('demo', () => seedDemo({}), 'Sample articles added. These are demo content, not live feed results.')} demoPending={pending.has('demo')} hasSources={sources.length > 0} /> : <section className="reader-surface" aria-label="Articles"><DataViews<Article> data={data} fields={fields} view={view} onChangeView={setView} actions={actions} paginationInfo={paginationInfo} defaultLayouts={{ list: {}, table: { layout: { density: 'comfortable' } } }} onClickItem={(article) => setSelectedId(article.id)} isItemClickable={() => true} searchLabel="Search articles" empty={<div className="empty-filter"><h2>No articles match this view</h2><p>Try another search or clear your filters.</p><Button variant="secondary" onClick={() => { setView(DEFAULT_VIEW); setScope('all'); }}>Show all articles</Button></div>} /></section>}
-      <footer className="workspace-footer">Feeds web prototype<span>Up to 200 recent articles · 25 sources per account</span></footer>
+      <header className="workspace-header">
+        <Button className="mobile-nav-toggle" icon={listView} label="Choose feed" aria-expanded={sidebarOpen} onClick={() => setSidebarOpen(true)} />
+        <h1>{heading}</h1>
+        <div className="header-actions">
+          {tab === 'reader' && <Button icon={search} label="Search articles" aria-expanded={searchOpen} onClick={() => setSearchOpen(!searchOpen)} />}
+          <Button icon={moreVertical} label="Reader options" onClick={() => setOptionsOpen(true)} />
+        </div>
+      </header>
+      {searchOpen && tab === 'reader' && <div className="reader-search"><TextControl label="Search articles" type="search" value={query} onChange={value => { setQuery(value); setVisibleCount(40); }} autoFocus /><Button onClick={() => { setSearchOpen(false); setQuery(''); }}>Cancel</Button></div>}
+      {demo && <p className="reader-status">Sample articles · not saved</p>}
+      {!demo && dashboard && !workerConfigured && <p className="reader-status"><button onClick={() => setOptionsOpen(true)}>Fetching paused</button></p>}
+      {readFilter !== 'all' && tab === 'reader' && <div className="active-filter"><span>{readFilter === 'read' ? 'Read articles' : 'Unread articles'}</span><Button onClick={() => setReadFilter('all')}>Clear filter</Button></div>}
+      <div className="notice-stack" aria-live="polite">{error && <Notice status="error" onRemove={() => setError('')}>{error}</Notice>}{success && <Notice status="success" onRemove={() => setSuccess('')}>{success}</Notice>}</div>
+      {!dashboard ? <div className="loading-state" aria-live="polite" aria-busy={!loadingDelayed}>{!loadingDelayed && <Spinner />}<h2>{loadingDelayed ? 'Your feeds are taking longer to load' : 'Loading articles'}</h2><p>{loadingDelayed ? 'The connection may be unavailable. Your saved articles are unchanged.' : 'Fetching your sources and reading history.'}</p>{loadingDelayed && <Button variant="secondary" onClick={() => window.location.reload()}>Reload and retry</Button>}</div> : tab === 'sources' ? <SourceManager sources={sources} workerConfigured={workerConfigured} pending={pending} onAdd={() => setAddOpen(true)} onToggle={(source) => void run(`source:${source.id}`, () => updateSource({ id: source.id, enabled: !source.enabled }), source.enabled ? 'Source paused.' : 'Source enabled.')} onRefresh={(source) => void run(`source:${source.id}`, () => refreshSource({ id: source.id }), 'Refresh queued. The next scheduled check will fetch this source.')} onDelete={setRemoveTarget} /> : !articles.length ? <EmptyLibrary onAdd={() => setAddOpen(true)} onDemo={() => void run('demo', () => seedDemo({}), 'Sample articles added. These are demo content, not live feed results.')} demoPending={pending.has('demo')} hasSources={sources.length > 0} /> : <section className="reader-surface" aria-label="Articles">
+        {visibleArticles.length ? <ul className="article-list">{visibleArticles.map(article => <li key={article.id}>
+          <button className={`article-row ${article.read ? 'is-read' : ''}`} onClick={() => setSelectedId(article.id)} aria-label={article.title || 'Untitled article'}>
+            <span className="article-title">{article.title || 'Untitled article'}</span>
+            <span className="article-meta"><span className="article-source">{article.sourceTitle}</span><span aria-hidden="true"> / </span><time dateTime={article.publishedAt || undefined} title={dateLabel(article.publishedAt)}>{relativeDate(article.publishedAt)}</time>{article.starred && <span className="article-star" aria-label="Starred">★</span>}{!article.read && <span className="screen-reader-text">Unread</span>}</span>
+            {article.bodyText && <span className="article-excerpt">{article.bodyText.slice(0, 240)}</span>}
+          </button>
+        </li>)}</ul> : <div className="empty-filter"><h2>No articles found</h2><p>Try another search or clear your filters.</p><Button variant="secondary" onClick={() => { setQuery(''); setReadFilter('all'); setScope('all'); }}>Show all articles</Button></div>}
+        {filteredArticles.length > visibleCount && <div className="load-more"><Button variant="secondary" onClick={() => setVisibleCount(count => count + 40)}>Show more articles</Button></div>}
+      </section>}
+
     </main>
+    {optionsOpen && <Modal title="Reader options" onRequestClose={() => setOptionsOpen(false)} className="compact-modal reader-options">
+      {tab === 'reader' && <div className="reader-option-fields"><label>Read status<select value={readFilter} onChange={event => { setReadFilter(event.target.value); setVisibleCount(40); }}><option value="all">All articles</option><option value="unread">Unread</option><option value="read">Read</option></select></label><label>Sort by<select value={sortOrder} onChange={event => { setSortOrder(event.target.value); setVisibleCount(40); }}><option value="newest">Newest first</option><option value="oldest">Oldest first</option></select></label></div>}
+      <div className="reader-option-actions"><Button variant="secondary" onClick={() => { setOptionsOpen(false); setImportOpen(true); }} disabled={!dashboard}>Import OPML</Button><Button variant="secondary" icon={plus} onClick={() => { setOptionsOpen(false); setAddOpen(true); }} disabled={!dashboard || sources.length >= SOURCE_LIMIT}>Add source</Button><Button onClick={() => { setOptionsOpen(false); setTab('sources'); }}>Manage sources</Button></div>
+      {demo && <p className="fine-print">Synthetic articles only. Changes stay in this tab and reset on reload. No account data or network writes.</p>}
+      {dashboard && !workerConfigured && <p className="fine-print">Live fetching is paused. You can organize sources and read sample articles. Scheduled ingestion has not been enabled.</p>}
+      <p className="fine-print">{scopedArticles.length} articles in this view. Up to 200 recent articles and 25 sources per account.</p>
+      <div className="modal-actions"><Button variant="primary" onClick={() => setOptionsOpen(false)}>Done</Button></div>
+    </Modal>}
     {importOpen && <ImportOpmlModal sources={sources} onClose={() => setImportOpen(false)} onImport={async input => { const result = await api.importOpml(input) as OpmlImportResult; setSuccess(`${result.imported} sources imported as paused. ${result.existing} existing sources left unchanged.`); return result; }} />}
     {addOpen && <AddSourceModal workerConfigured={workerConfigured} pending={pending.has('add')} onClose={() => setAddOpen(false)} onSubmit={async (values) => { const ok = await run('add', () => addSource(values), workerConfigured ? 'Source added.' : 'Source saved as paused. Enable scheduled ingestion to start fetching.'); if (ok) setAddOpen(false); return ok; }} />}
     {removeTarget && <Modal title="Remove this source?" onRequestClose={() => { if (!pending.has(`source:${removeTarget.id}`)) setRemoveTarget(null); }} className="compact-modal"><p><strong>{removeTarget.title}</strong> and its stored articles will be removed from your library. This cannot be undone.</p><div className="modal-actions"><Button variant="tertiary" disabled={pending.has(`source:${removeTarget.id}`)} onClick={() => setRemoveTarget(null)}>Cancel</Button><Button variant="primary" isDestructive isBusy={pending.has(`source:${removeTarget.id}`)} disabled={pending.has(`source:${removeTarget.id}`)} onClick={async () => { const id = removeTarget.id; const ok = await run(`source:${id}`, () => deleteSource({ id }), 'Source removed.'); if (ok) { setRemoveTarget(null); if (scope === `source:${id}`) navigate('all'); } }}>Remove source</Button></div></Modal>}
     {selected && renderDrawer({ article: selected, pending: pending.has(`article:${selected.id}`), error, onClose: () => setSelectedId(null), onChange: (patch) => void changeArticle(selected, patch) })}
   </div>;
+}
+
+export function relativeDate(value: string | null) {
+  if (!value) return 'Undated';
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return 'Undated';
+  const minutes = Math.max(0, Math.floor((Date.now() - timestamp) / 60000));
+  if (minutes < 1) return 'now';
+  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1440) return `${Math.floor(minutes / 60)}h`;
+  if (minutes < 10080) return `${Math.floor(minutes / 1440)}d`;
+  return new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' }).format(timestamp);
 }
 
 function NavItem({ label, icon, active, count, onClick }: { label: string; icon: ReactNode; active: boolean; count?: number; onClick: () => void }) {

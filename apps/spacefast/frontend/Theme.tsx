@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { ThemeProvider } from '@wordpress/theme';
-import { useEnableWpCompatOverlaySlot } from '@wordpress/ui';
 
 type ThemeChoice = 'system' | 'light' | 'dark';
 const ThemeContext = createContext<{ choice: ThemeChoice; setChoice: (choice: ThemeChoice) => void }>({ choice: 'system', setChoice: () => {} });
@@ -9,7 +8,6 @@ export function useThemeChoice() { return useContext(ThemeContext); }
 export function AppTheme({ children }: { children: ReactNode }) {
   const [choice, setChoice] = useState<ThemeChoice>('system');
   const [systemDark, setSystemDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
-  useEnableWpCompatOverlaySlot();
   useEffect(() => {
     const media = window.matchMedia('(prefers-color-scheme: dark)');
     const change = () => setSystemDark(media.matches);
