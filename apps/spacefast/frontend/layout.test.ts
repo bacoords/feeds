@@ -86,6 +86,40 @@ test('mobile Open actions keep their label intact and may wrap below the article
   assert.doesNotMatch(stylesheet, /(?:^|\n)button[^{}]*\{[^}]*overflow-wrap:\s*anywhere/);
 });
 
+test('sidebar unread counts stay on one line while long source titles shrink', () => {
+  // Hosted v4 QA at 1165px found 23 and 11 stacked into separate digits.
+  // The source button's inherited overflow-wrap:anywhere allowed the count
+  // to compress. This is a sizing-contract guard, not a pixel-layout test.
+  const countRule = declarationsFor('.nav-count');
+  assert.match(countRule, /flex:\s*0\s+0\s+auto;/, 'count badges must not absorb negative flex space');
+  assert.match(countRule, /min-width:\s*calc\(2ch\s*\+\s*8px\);/);
+  assert.match(countRule, /white-space:\s*nowrap;/);
+  assert.match(countRule, /overflow-wrap:\s*normal;/);
+  assert.match(countRule, /font-variant-numeric:\s*tabular-nums;/);
+
+  const titleRule = declarationsFor('.source-nav > span:nth-child(2)');
+  assert.match(titleRule, /flex:\s*1\s+1\s+auto;/);
+  assert.match(titleRule, /min-width:\s*0;/, 'the source title, not its count, must be allowed to shrink');
+  assert.match(titleRule, /overflow:\s*hidden;/);
+  assert.match(titleRule, /text-overflow:\s*ellipsis;/);
+  assert.match(titleRule, /white-space:\s*nowrap;/);
+});
+
+test('narrow reader reserves the Open action before hover to prevent first-click layout shifts', () => {
+  // Hosted QA at 320 CSS px / 200% zoom found that a hover-capable browser
+  // revealed Open during pointer entry, moving the action away from the click.
+  // Width, not the device's hover capability, must make it visible up front.
+  const mobileBlock = stylesheet.match(/@media\s*\(max-width:\s*600px\)\s*\{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(mobileBlock, 'keep a narrow-screen layout block');
+  const mobileRules = [...mobileBlock.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)];
+  const actionRule = mobileRules.find(([, selector]) => selector.trim() === '.reader-surface .dataviews-view-list div:is([role=row], [role=article]) .dataviews-view-list__item-actions > :not(:last-child)');
+  assert.ok(actionRule, 'the narrow primary action rule must not require hover, focus, or selection');
+  assert.match(actionRule[2], /flex-basis:\s*max-content;/);
+  assert.match(actionRule[2], /width:\s*auto;/);
+  assert.match(actionRule[2], /overflow:\s*(?:visible|unset);/);
+  assert.doesNotMatch(mobileBlock, /@media\s*\(hover:/, 'narrow action visibility must also apply to a hover-capable desktop browser');
+});
+
 test('reader palette follows installed WordPress semantic tokens rather than a second dark-mode palette', () => {
   for (const alias of ['paper', 'canvas', 'ink', 'muted', 'border', 'subtle-border', 'accent', 'accent-soft']) {
     assert.match(stylesheet, new RegExp(`--${alias}:\\s*var\\(--wpds-color-`));
