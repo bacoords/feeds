@@ -28,4 +28,5 @@ test('native capsule leaves endpoint auth to handlers and declares concrete read
   assert.deepEqual(Object.keys(app.schema).sort(), ['articles','jobs','sources']);
   assert.deepEqual(Object.keys(app.queries).sort(), ['article','dashboard']);
   assert.equal(typeof app.mutations.addSource, 'function');
+  assert.equal(typeof app.mutations.importOpml, 'function');
 });

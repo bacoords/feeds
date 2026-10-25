@@ -1,8 +1,8 @@
 # Feeds: web-first Spacefast prototype
 
-A standalone React reader using WordPress Components and DataViews, with a native Spacefast Zero application backend. The WordPress plugin at the repository root is unchanged. This app does not call WordPress REST APIs, use `wp` globals, or store reader state as global post statuses; Spacefast itself is backed by WordPress.
+A standalone React reader using WordPress UI, Theme and DataViews, with a native Spacefast Zero application backend. The WordPress plugin at the repository root is unchanged. This app does not call WordPress REST APIs, use `wp` globals, or store reader state as global post statuses; Spacefast itself is backed by WordPress.
 
-**This is a bounded private prototype, not a production migration. Live RSS polling is off by default.** You can sign in through the platform, manage personal sources, add clearly labeled sample articles, and use independent read/star state. Source metadata and sample data are persisted per authenticated app user, not shared across site visitors. Live authentication, hosted MySQL isolation and hosted recovery still require deployment validation.
+**This is a bounded web prototype, not a production migration. Live RSS polling is off by default.** You can sign in through the platform, manage personal sources, add clearly labeled sample articles, and use independent read/star state. Source metadata and sample data are persisted per authenticated app user, not shared across site visitors. Live authentication, hosted MySQL isolation and hosted recovery still require deployment validation.
 
 ## Build and verify
 
@@ -28,7 +28,7 @@ No login, credentials or account provisioning are needed for the unit/build chec
 
 Publish the `apps/spacefast` project root, **not only `dist/`**. `sf.jsonc` declares the Zero server and framework build. Current official CLI assembly was exercised: Vite's `index.html` and assets are served, while the root Zero capsule, schema, queries, mutations and endpoints are compiled into runtime metadata. Native hosted source builds must retain that composition.
 
-For a hosted build, select this directory as the project root, use `npm ci --ignore-scripts`, `npm run build`, output `dist`, and a Node 24-compatible builder. Keep the Space private. No secrets are included. The default package build alone is not proof that the runtime was installed: inspect the deployed runtime and three tables, then test native sign-in, two users, sign-out and session expiry.
+For a hosted build, select this directory as the project root, use `npm ci --ignore-scripts`, `npm run build`, output `dist`, and a Node 24-compatible builder. The existing prototype has a public shell; reader data still requires an authenticated app session. Do not change access settings as part of a source build. No secrets are included. The default package build alone is not proof that the runtime was installed: inspect the deployed runtime and three tables, then test native sign-in, two users, sign-out and session expiry.
 
 The UI uses the supported `@spacefast/zero/react` hooks. Its client discovers `/__zero/config`, `/__zero/run` and realtime on the same origin. Space access and native app accounts are different concepts; verify the Space's enabled app sign-in provider before claiming the sign-in button works. Do not substitute a management token as a reader credential.
 
@@ -44,9 +44,25 @@ Every reader handler checks `isAuthenticated`, not just the presence of `userId`
 
 Authentication is deliberately per handler, not a capsule-wide `requireSignIn` gate: Zero applies the blanket gate before every endpoint, including public health and machine-authenticated ingestion. Native sign-in remains the reader identity source. Compiled-adapter regression tests verify that signed-out/guest reader operations are denied before data access, health is public, and worker operations remain disabled or credential-protected.
 
-Limits are deliberate: 25 sources/account; 200 stored articles/source; latest 200 articles shown across the account. Search/filter apply to that bounded result, not all historical content. Dashboard bodies are 2,000-character previews; a separate authenticated query loads one full body (50,000 characters max). Full sources pause with a visible capacity error rather than delete history. There is no retention expansion, OPML, archive migration/export, newsletter ingestion, saved-links capture, billing, native iOS or offline sync in this slice.
+Limits are deliberate: 25 sources/account; 200 stored articles/source; latest 200 articles shown across the account. Search/filter apply to that bounded result, not all historical content. Dashboard bodies are 2,000-character previews; a separate authenticated query loads one full body (50,000 characters max). Full sources pause with a visible capacity error rather than delete history. There is no retention expansion, article/history migration or export, newsletter ingestion, saved-links capture, billing, native iOS or offline sync in this slice.
 
 Article bodies are plain text. There is no `innerHTML`, remote image, embed, tracking pixel or external font fetch. Rich article HTML is intentionally out of scope.
+
+## OPML subscription import
+
+Choose **Import OPML**, upload a UTF-8 `.opml` or XML file, review its feed rows and nested folder paths, and select the sources to add. The preview shows invalid feeds, duplicates and subscriptions already in your library. Only the confirmed original XML and selected row IDs are submitted; the server reparses and independently validates them for the signed-in account.
+
+The prototype deliberately retains **25 sources per account**. The dialog shows used/remaining slots, accepts a preview of up to 500 feed outlines, and blocks an over-capacity selection instead of silently truncating it. When an export does not fit, nothing is preselected. Existing subscriptions, articles, read/star state and jobs are not overwritten. New subscriptions are always paused, even if an ingestion service is configured. Importing does not enable fetching.
+
+Files are limited to 256 KiB, valid UTF-8 XML, bounded depth/nodes/attributes and public HTTPS URLs. DTD/entity declarations, malformed XML and unsupported encodings are rejected. HTTP URLs are reported for correction, not silently upgraded. Nested folder labels use ` / `; labels exceeding supported lengths are shown as invalid rather than truncated. Exact URL normalization preserves query parameters and does not guess that different feed addresses are equivalent. Files are parsed locally for preview and are not uploaded before confirmation; filenames are not sent or stored. No user's OPML file has been imported during development.
+
+## WordPress UI migration and sample QA
+
+App action buttons, inputs, switches, notices and dialogs use the new WordPress UI components through small adapters in `frontend/controls.tsx`. Navigation and file inputs retain semantic HTML. Theme generation and semantic tokens replace hand-maintained dark-mode control overrides. The DataViews upgrade remains a mixed-package integration, so `useEnableWpCompatOverlaySlot()` coordinates overlay stacking. Real light/dark, keyboard and narrow-screen QA is still required after each deployed change.
+
+`/?preview=sample` is an explicitly labeled, nonpersistent test fixture using the **same** Workspace/ArticleDrawer views. It creates synthetic data in memory and never mounts auth/query/mutation hooks, sends account writes, or fetches articles. It offers light/dark and sample/empty/loading/article-error controls. Read/star and source removal affect only that tab; reload/reset restores fixtures. Source adding and importing cannot save from the fixture. The default product navigation does not advertise this QA route. Passing fixture checks is not proof of authenticated sessions, real database behavior or iOS-specific browser behavior.
+
+The reported mobile disappearing-title bug came from applying a hover background to DataViews' invisible full-row button, covering sibling text. Styling now targets actual row states, with semantic colors and a transparent hit target. The explicit Open action keeps readable sizing at narrow widths. The Library opens in a focus-managed dialog instead of inserting navigation above the current scroll position; the article dialog uses the new component's own header/content scrolling rather than duplicate offsets.
 
 ## Native scheduled ingestion: not enabled yet
 
@@ -54,7 +70,7 @@ The preferred path runs entirely in this Space's Zero runtime: a protected `GET 
 
 The official installed `@spacefast/common` 0.8.0 egress contract identifies private-range/cloud-metadata blocking, DNS pinning and redirect-hop checks as unconditional safeguards for both runtimes. Zero documents a five-second timeout for each write-side fetch. This is not a claim that every browser fetch API exists in QuickJS: the adapter **fails closed if a bounded readable body is unavailable**. No fully buffered `text()` fallback silently weakens the byte cap. A real capability test is required before activation.
 
-The parser bundles unchanged, locked public ESM exports from `fast-xml-parser` (XMLValidator) and `htmlparser2` (tokenizer). It does not patch the compiler or shim forbidden globals. `server/vendor/` contains source hashes, package integrity/provenance and licenses. `npm run check:native-parser` detects stale artifacts; `npm run build:native-parser` regenerates them. The regular `build:zero` verifies them before compilation.
+The parser bundles unchanged, locked public ESM exports from `fast-xml-parser` (XMLValidator) and `htmlparser2` (tokenizer). It does not patch the compiler or shim forbidden globals. `shared/vendor/` contains source hashes, package integrity/provenance and licenses. `npm run check:native-parser` detects stale artifacts; `npm run build:native-parser` regenerates them. The regular `build:zero` verifies them before compilation.
 
 ### Protected trigger and staged verification
 
@@ -76,7 +92,7 @@ See [docs/VALIDATION.md](docs/VALIDATION.md) for the test record, security limit
 
 ## Dependencies and license
 
-WordPress Components/DataViews retain versions compatible with the source plugin. React and the native Zero SDK are bundled explicitly. Locked transitive overrides for `uuid` 11.1.1, `zod` 4.6.6, `happy-dom` 21.0.4 and `esbuild` 0.28.2 resolve current advisories; run the complete suite when changing these. No dependency-audit result is a security guarantee.
+The standalone app uses `@wordpress/ui` 0.25.0, `@wordpress/theme` 3.0.0, DataViews 21.0.0 and icons 19.0.0 with React 18.3.1. Its controls, notices, inputs, switches and dialogs render the new UI package. A root ThemeProvider supplies shared light/dark tokens, including portaled overlays. DataViews still depends on `@wordpress/components` 43.0.0 internally, so the legacy package and its stylesheet remain; this is not a claim of complete removal. The original plugin dependency versions are untouched. Locked transitive overrides for `uuid` 11.1.1, `zod` 4.6.6, `happy-dom` 21.0.4 and `esbuild` 0.28.2 resolve current advisories; run the complete suite when changing these. No dependency-audit result is a security guarantee.
 
 The application follows the original repository's GPL-2.0-or-later license. Dependencies retain their respective licenses. No migration or destructive change to the original plugin is included.
 

@@ -38,7 +38,7 @@ test('feed links allow only http(s), reject executable schemes and credentials',
 });
 
 test('worker absence never displays a feed as active or fetching', () => {
-  assert.equal(sourceStatus({ enabled: true, error: null, jobStatus: 'running' }, false), 'Worker not connected');
+  assert.equal(sourceStatus({ enabled: true, error: null, jobStatus: 'running' }, false), 'Fetching not enabled');
   assert.equal(sourceStatus({ enabled: false, error: null, jobStatus: null }, true), 'Paused');
   assert.equal(sourceStatus({ enabled: true, error: 'Could not parse', jobStatus: 'error' }, true), 'Needs attention');
 });

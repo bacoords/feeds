@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { build, version as esbuildVersion } from 'esbuild';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
-const vendor = 'server/vendor';
+const vendor = 'shared/vendor';
 const entry = "export { XMLValidator } from 'fast-xml-parser'; export { Parser } from 'htmlparser2';";
 const digest = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
 

@@ -41,7 +41,7 @@ export function dateLabel(value: string | number | null, includeTime = false): s
 
 export function sourceStatus(source: { enabled: boolean; error: string | null; jobStatus: string | null }, workerConfigured: boolean): string {
   if (source.jobStatus === 'demo') return 'Demo source';
-  if (!workerConfigured) return 'Worker not connected';
+  if (!workerConfigured) return 'Fetching not enabled';
   if (!source.enabled) return 'Paused';
   if (source.error) return 'Needs attention';
   if (source.jobStatus === 'running') return 'Fetching';

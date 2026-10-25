@@ -149,7 +149,7 @@ test('native source IDs and hash outputs are checked', async () => {
 
 test('vendor output, upstream source hashes and license provenance reproduce exactly', async () => {
   await buildNativeParser(true);
-  const provenance = JSON.parse(await readFile('server/vendor/feed-parsers.provenance.json', 'utf8'));
+  const provenance = JSON.parse(await readFile('shared/vendor/feed-parsers.provenance.json', 'utf8'));
   assert.deepEqual(provenance.packages.map((entry: { name: string }) => entry.name).sort(), ['entities', 'fast-xml-parser', 'htmlparser2']);
   assert.ok(provenance.packages.every((entry: { resolved: string; integrity: string }) => entry.resolved.startsWith('https://registry.npmjs.org/') && entry.integrity.startsWith('sha512-')));
 });
@@ -158,7 +158,7 @@ test('actual Zero analyzer and capsule compiler accept unmodified vendor source'
   const config = JSON.parse(await readFile('sf.jsonc', 'utf8'));
   const root = process.cwd();
   const analysis = await analyzeZeroSource(root, config.runtime);
-  assert.ok(analysis.manifest.files.some(file => file.path === 'server/vendor/feed-parsers.js'));
+  assert.ok(analysis.manifest.files.some(file => file.path === 'shared/vendor/feed-parsers.js'));
   const compiled = await compileZeroCapsule({ root, analysis, appName: 'Feeds', previousSchema: null, migrationMode: 'safe', shellTitle: 'Feeds', linkThemeStylesheet: false, inspectPolicy: 'private', runnerSha256: null, centralRealtimeUrl: null });
   assert.ok(compiled.finalizePayload.endpointSources.length);
 });

@@ -1,4 +1,4 @@
-import { Parser, XMLValidator } from './vendor/feed-parsers.js';
+import { Parser, XMLValidator } from '../shared/vendor/feed-parsers.js';
 import { safeUrl } from './domain.js';
 import type { NormalizedItem } from '../shared/contracts.js';
 

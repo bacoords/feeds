@@ -1,6 +1,8 @@
 import type { ReadDatabaseOf, WriteDatabaseOf, QueryServerContext, ServerContext } from '@spacefast/zero/server';
 import type { schema } from './schema.js';
 import type { Article, Dashboard, NormalizedItem, WorkerResult } from '../shared/contracts.js';
+import { normalizeFeedUrl, OpmlParseError, parseOpml, OPML_MAX_FEEDS, SOURCE_LIMIT } from '../shared/opml.js';
+import type { OpmlImportInput, OpmlImportResult } from '../shared/opml.js';
 
 type Definition = { schema: typeof schema };
 export type ReadContext = Pick<QueryServerContext<ReadDatabaseOf<Definition>>, 'db' | 'auth' | 'env' | 'crypto'>;
@@ -8,7 +10,6 @@ export type WriteContext = Pick<ServerContext<WriteDatabaseOf<Definition>>, 'db'
 const HOUR = 3_600_000;
 const LEASE = 60_000;
 const NEVER = 8_640_000_000_000_000;
-const SOURCE_LIMIT = 25;
 export const ARTICLE_LIMIT = 200;
 export class DomainError extends Error {
   constructor(message: string, public status = 400) { super(message); }
@@ -34,13 +35,8 @@ function text(value: unknown, max: number, name: string, allowEmpty = false): st
   return value.trim();
 }
 export function safeUrl(value: unknown): string {
-  const raw = text(value, 2048, 'URL');
-  let url: URL;
-  try { url = new URL(raw); } catch { throw new DomainError('Enter an HTTPS feed URL.'); }
-  const host = url.hostname.toLowerCase();
-  if (url.protocol !== 'https:' || url.username || url.password || (url.port && url.port !== '443') || !host.includes('.') || host.endsWith('.') || /(^|\.)(localhost|local|internal|test|invalid)$/.test(host) || host === 'metadata.google.internal' || /^[\d.:[\]]+$/.test(host)) throw new DomainError('Use a public HTTPS hostname without credentials or a custom port.');
-  url.hash = '';
-  return url.href;
+  try { return normalizeFeedUrl(value); }
+  catch (error) { throw new DomainError(error instanceof Error ? error.message : 'Enter an HTTPS feed URL.'); }
 }
 function articleUrl(value: unknown) {
   if (!value) return '';
@@ -78,11 +74,46 @@ export async function addSource(ctx: WriteContext, input: { title: string; url: 
   if (duplicate) return duplicate;
   const count = await ctx.db.sources.withIndex('by_owner', q => q.eq('ownerId', userId)).count();
   if (count >= SOURCE_LIMIT) throw new DomainError('This prototype supports 25 feeds per person.');
-  const enabled = ingestionConfigured(ctx);
-  const source = await ctx.db.sources.insert({ ownerId: userId, title: text(input.title, 200, 'feed title'), url, folder: text(input.folder ?? '', 100, 'folder', true), enabled, nextPollAt: now, lastAttemptAt: 0, lastSuccessAt: 0, error: '', etag: '', lastModified: '', demo: false });
-  await ctx.db.jobs.insert({ ownerId: userId, sourceId: source.id, status: enabled ? 'queued' : 'paused', nextRunAt: enabled ? now : NEVER, leaseUntil: 0, leaseToken: '', leaseVersion: 0, attempts: 0, completedToken: '' });
+  const source = await insertSource(ctx, userId, { title: text(input.title, 200, 'feed title'), url, folder: text(input.folder ?? '', 100, 'folder', true) }, ingestionConfigured(ctx), now);
   ctx.invalidate('dashboard', 'article');
   return source;
+}
+async function insertSource(ctx: WriteContext, userId: string, input: { title: string; url: string; folder: string }, enabled: boolean, now: number) {
+  const source = await ctx.db.sources.insert({ ownerId: userId, ...input, enabled, nextPollAt: now, lastAttemptAt: 0, lastSuccessAt: 0, error: '', etag: '', lastModified: '', demo: false });
+  await ctx.db.jobs.insert({ ownerId: userId, sourceId: source.id, status: enabled ? 'queued' : 'paused', nextRunAt: enabled ? now : NEVER, leaseUntil: 0, leaseToken: '', leaseVersion: 0, attempts: 0, completedToken: '' });
+  return source;
+}
+/** One native write transaction. No import error is converted into a successful commit. */
+export async function importOpml(ctx: WriteContext, input: OpmlImportInput, now = Date.now()): Promise<OpmlImportResult> {
+  const userId = owner(ctx);
+  if (!input || typeof input !== 'object' || !Array.isArray(input.selectedIds) || !input.selectedIds.length || input.selectedIds.length > OPML_MAX_FEEDS || input.selectedIds.some(id => typeof id !== 'string' || !/^opml-[1-9]\d{0,2}$/.test(id))) throw new DomainError('Select at least one valid feed from the OPML preview.');
+  const selected = new Set(input.selectedIds);
+  if (selected.size !== input.selectedIds.length) throw new DomainError('A feed was selected more than once.');
+  let preview;
+  try { preview = parseOpml(input.xml); }
+  catch (error) { if (error instanceof OpmlParseError) throw new DomainError(error.message); throw error; }
+  const entries = preview.entries.filter(entry => selected.has(entry.id));
+  if (entries.length !== selected.size || entries.some(entry => entry.error || entry.duplicateOf)) throw new DomainError('The selection contains an invalid, duplicate or missing feed. Review the OPML preview again.');
+  // Revalidate every selected field before reading/writing. Never use client labels,
+  // normalized URLs, folders, account IDs, counts or enable-state claims.
+  const validated = entries.map(entry => ({ title: text(entry.title, 200, 'feed title'), url: safeUrl(entry.url), folder: text(entry.folder, 100, 'folder', true) }));
+  const current = await ctx.db.sources.withIndex('by_owner', q => q.eq('ownerId', userId)).take(SOURCE_LIMIT + 1);
+  if (current.length > SOURCE_LIMIT) throw new DomainError('This account exceeds the 25-feed prototype limit. No feeds were imported.', 409);
+  const existingByUrl = new Map(current.map(source => [source.url, source]));
+  const newCount = validated.filter(entry => !existingByUrl.has(entry.url)).length;
+  if (current.length + newCount > SOURCE_LIMIT) throw new DomainError(`No feeds were imported. This prototype allows 25 feeds per person; ${Math.max(0, SOURCE_LIMIT - current.length)} slots remain, but you selected ${newCount} new feeds.`, 409);
+  const sourceIds: string[] = [];
+  let imported = 0;
+  for (const entry of validated) {
+    const existing = existingByUrl.get(entry.url);
+    if (existing) { sourceIds.push(existing.id); continue; }
+    // Importing subscriptions never enables polling, even on configured accounts.
+    const source = await insertSource(ctx, userId, entry, false, now);
+    sourceIds.push(source.id);
+    imported++;
+  }
+  if (imported) ctx.invalidate('dashboard', 'article');
+  return { imported, existing: sourceIds.length - imported, sourceIds };
 }
 export async function updateSource(ctx: WriteContext, input: { id: string; enabled: boolean }, now = Date.now()) {
   const source = await sourceFor(ctx, input.id);

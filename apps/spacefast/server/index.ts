@@ -36,6 +36,7 @@ export default capsule({
 },
   queries: { dashboard: query(domain.dashboard), article: query(domain.article) },
   mutations: {
+    importOpml: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.importOpml>[1]) => domain.importOpml(ctx, input)),
     addSource: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.addSource>[1]) => domain.addSource(ctx, input)), updateSource: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.updateSource>[1]) => domain.updateSource(ctx, input)),
     deleteSource: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.deleteSource>[1]) => domain.deleteSource(ctx, input)), refreshSource: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.refreshSource>[1]) => domain.refreshSource(ctx, input)),
     setArticleState: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.setArticleState>[1]) => domain.setArticleState(ctx, input)), seedDemo: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.seedDemo>[1]) => domain.seedDemo(ctx, input)),

@@ -74,6 +74,7 @@ test('compiled native trigger validates bearer then reports disabled without rea
 });
 
 test('compiled reader handlers reject signed-out and guest users before touching data', async () => {
+  assert.ok(compiled.finalizePayload.runSources.some(run => run.runId === 'mutation_importOpml'), 'OPML import must be included in compiled authentication coverage');
   for (const identity of [null, { userId: 'guest:test', isAuthenticated: false, isGuest: true }]) {
     for (const run of compiled.finalizePayload.runSources) {
       await assert.rejects(execute(run.source, { __statticAuth: { current: () => identity } }),
