@@ -175,16 +175,18 @@ export function WorkspaceView({ displayName, dashboard, actions: api, renderDraw
 
 export function SwipeArticleRow({ article, pending, onOpen, onChange }: { article: Article; pending: boolean; onOpen: () => void; onChange: (patch: ArticleState) => void }) {
   const swipe = useSwipe({ disabled: pending, onSwipe: direction => {
-    if (direction === 'left' && !article.read) onChange({ read: true });
-    if (direction === 'right' && !article.starred) onChange({ starred: true });
+    if (direction === 'left') onChange({ read: !article.read });
+    if (direction === 'right') onChange({ starred: !article.starred });
   } });
-  const feedback = pending ? 'Saving' : swipe.offset < 0 ? article.read ? 'Already read' : 'Mark read' : article.starred ? 'Already starred' : 'Star';
+  const feedback = pending ? 'Saving' : swipe.offset < 0 ? article.read ? 'Mark unread' : 'Mark read' : article.starred ? 'Unstar' : 'Star';
   return <li {...swipe.handlers} className={`swipe-row ${swipe.ready ? 'is-ready' : ''}`}>
-    <span className={`swipe-feedback ${swipe.offset < 0 ? 'swipe-left' : 'swipe-right'}`} aria-hidden="true" style={{ opacity: swipe.offset ? 1 : 0 }}>{swipe.offset < 0 ? '✓' : '★'} {feedback}</span>
+    <span className={`swipe-feedback ${swipe.offset < 0 ? 'swipe-left' : 'swipe-right'}`} aria-hidden="true" style={{ opacity: swipe.offset ? 1 : 0 }}>{swipe.offset < 0 ? article.read ? '○' : '✓' : article.starred ? '☆' : '★'} {feedback}</span>
     <button className={`article-row ${article.read ? 'is-read' : ''} ${swipe.tracking ? 'is-swiping' : ''}`} style={{ transform: `translateX(${swipe.offset}px)` }} onClick={onOpen} aria-label={article.title || 'Untitled article'} aria-busy={pending || undefined}>
+      <span className="article-row-copy">
       <span className="article-title">{article.title || 'Untitled article'}</span>
       <span className="article-meta"><span className="article-source">{article.sourceTitle}</span><span aria-hidden="true"> / </span><time dateTime={article.publishedAt || undefined} title={dateLabel(article.publishedAt)}>{relativeDate(article.publishedAt)}</time>{article.starred && <span className="article-star" aria-label="Starred">★</span>}{!article.read && <span className="screen-reader-text">Unread</span>}</span>
       {article.bodyText && <span className="article-excerpt">{article.bodyText.slice(0, 240)}</span>}
+      </span>
     </button>
   </li>;
 }

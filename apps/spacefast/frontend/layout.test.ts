@@ -84,3 +84,14 @@ test('dialogs retain scrolling and portal isolation without legacy offsets', () 
   assert.match(declarationsFor('#root'), /isolation:\s*isolate;/);
   assert.match(declarationsFor('body'), /position:\s*relative;/);
 });
+
+
+test('read items dim only their copy and restore full visibility for keyboard focus', () => {
+  assert.match(declarationsFor('.article-row.is-read .article-row-copy'), /opacity:\s*\.62;/);
+  assert.match(declarationsFor('.article-row.is-read:focus-visible .article-row-copy'), /opacity:\s*1;/);
+  assert.match(declarationsFor('.article-row.is-read :is(.article-title, .article-meta, .article-excerpt)'), /color:\s*var\(--ink\);/);
+  assert.match(stylesheet, /@media \(prefers-contrast: more\) \{ \.article-row\.is-read \.article-row-copy \{ opacity: 1;/);
+  assert.doesNotMatch(declarationsFor('.article-row'), /opacity:/);
+  assert.doesNotMatch(declarationsFor('.swipe-row'), /opacity:/);
+  assert.match(workspace, /className="article-row-copy"/);
+});

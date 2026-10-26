@@ -473,7 +473,7 @@ async function pointerClick(element: Element) {
   await act(async () => { element.dispatchEvent(new dom.MouseEvent('click', { bubbles: true, cancelable: true, detail: 1 }) as unknown as Event); });
 }
 
-test('list swipes set read left and star right without opening or toggling existing state', async () => {
+test('list swipes toggle read left and star right using the latest state without opening', async () => {
   await render(createElement(SamplePreview));
   const row = articleRows()[1];
   assert.ok(!row.classList.contains('is-read'));
@@ -483,13 +483,17 @@ test('list swipes set read left and star right without opening or toggling exist
   assert.equal(document.querySelector('[role="dialog"]'), null);
   assert.ok(row.classList.contains('is-read'));
   await swipe(row, -90);
-  assert.ok(row.classList.contains('is-read'));
+  assert.ok(!row.classList.contains('is-read'), 'repeat left swipe restores unread styling');
   await swipe(row, 90);
   await pointerClick(row);
   assert.ok(row.querySelector('.article-star'));
   assert.equal(document.querySelector('[role="dialog"]'), null);
   await swipe(row, 90);
-  assert.ok(row.querySelector('.article-star'), 'repeat swipe never unstars');
+  assert.equal(row.querySelector('.article-star'), null, 'repeat right swipe unstars');
+  await swipe(row, -90);
+  await swipe(row, 90);
+  assert.ok(row.classList.contains('is-read'), 'third left swipe marks read again');
+  assert.ok(row.querySelector('.article-star'), 'third right swipe stars again');
   await pointer(row, 'pointerdown', 180, 150);
   await pointer(row, 'pointerup', 180, 150);
   await pointerClick(row);
@@ -694,4 +698,41 @@ test('drawer child capture loss does not interrupt touch dismissal', async () =>
   await pointer(owner, 'pointermove', 205, 205);
   await pointer(owner, 'pointerup', 205, 205);
   assert.equal(document.querySelector('[role="dialog"]'), null);
+});
+
+
+test('swipe feedback reflects the inverse read/star action and does not dim with copy', async () => {
+  await render(createElement(SamplePreview));
+  const row = articleRows()[1];
+  const owner = row.closest('.swipe-row')!;
+  const feedback = owner.querySelector('.swipe-feedback')!;
+  assert.ok(row.querySelector('.article-row-copy .article-title'));
+  assert.ok(!row.querySelector('.article-row-copy .swipe-feedback'));
+  for (const [dx, label] of [[-90, 'Mark read'], [-90, 'Mark unread'], [90, 'Star'], [90, 'Unstar']] as const) {
+    await pointer(row, 'pointerdown', 180, 150);
+    await pointer(row, 'pointermove', 180 + dx, 150);
+    assert.ok(feedback.textContent?.includes(label), `${label} describes the action before release`);
+    await pointer(row, 'pointerup', 180 + dx, 150);
+  }
+  assert.ok(!row.classList.contains('is-read'));
+  assert.equal(row.querySelector('.article-star'), null);
+});
+
+test('failed unstar and unread saves restore their previous state', async () => {
+  const { WorkspaceView } = await import('./Workspace');
+  const { createSampleDashboard } = await import('./sample-data');
+  const dashboard = createSampleDashboard();
+  dashboard.articles.forEach(article => { article.read = true; article.starred = true; });
+  const noOp = async () => {};
+  const calls: unknown[] = [];
+  await render(createElement(WorkspaceView, {
+    displayName: 'Test', dashboard, renderDrawer: () => null,
+    actions: { mutateArticle: async input => { calls.push(input); throw new Error('Save failed'); }, addSource: noOp, updateSource: noOp, deleteSource: noOp, refreshSource: noOp, seedDemo: noOp, importOpml: noOp, signOut: noOp },
+  }));
+  const row = articleRows()[1];
+  await swipe(row, -90);
+  assert.ok(row.classList.contains('is-read'), 'failed unread restores read appearance');
+  await swipe(row, 90);
+  assert.ok(row.querySelector('.article-star'), 'failed unstar restores star');
+  assert.deepEqual(calls, [{ id: dashboard.articles[1].id, read: false }, { id: dashboard.articles[1].id, starred: false }]);
 });

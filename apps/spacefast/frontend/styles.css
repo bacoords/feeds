@@ -99,7 +99,15 @@ p, h1, h2, dd, .article-title, .article-source, .source-nav { overflow-wrap: any
 .article-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -3px; background: var(--canvas); }
 @media (hover: hover) { .article-row:hover { background: var(--canvas); } }
 .article-title { display: block; font-size: 19px; font-weight: 650; line-height: 1.35; letter-spacing: -.2px; color: var(--ink); margin-bottom: 6px; }
-.article-row.is-read .article-title { font-weight: 450; color: var(--muted); }
+.article-row-copy { display: block; }
+/* Fade copy only: keep the opaque hit surface, focus ring and swipe feedback intact.
+   Strong foreground avoids double-dimming muted text below readable contrast. */
+.article-row.is-read .article-row-copy { opacity: .62; }
+.article-row.is-read .article-title { font-weight: 450; }
+.article-row.is-read :is(.article-title, .article-meta, .article-excerpt) { color: var(--ink); }
+.article-row.is-read:focus-visible .article-row-copy { opacity: 1; }
+@media (hover: hover) { .article-row.is-read:hover .article-row-copy { opacity: 1; } }
+@media (prefers-contrast: more) { .article-row.is-read .article-row-copy { opacity: 1; } }
 .article-meta { display: flex; align-items: baseline; gap: 4px; font-size: 14px; line-height: 1.5; color: var(--muted); margin-bottom: 7px; }
 .article-source { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .article-meta time { flex-shrink: 0; white-space: nowrap; }
