@@ -18,6 +18,19 @@ export default function Workspace({ displayName }: { displayName: string }) {
   const refreshSource = useMutation<[{ id: string }]>('refreshSource');
   const seedDemo = useMutation<[Record<string, never>]>('seedDemo');
   const importOpml = useMutation<[{ xml: string; selectedIds: string[] }]>('importOpml');
+  const reconcileLegacy = useMutation<[]>('reconcileLegacy');
+  const reconciliationStarted = useRef(false);
+  useEffect(() => {
+    if (!dashboard || reconciliationStarted.current) return;
+    reconciliationStarted.current = true;
+    // Migration only: each transaction maps at most two old sources and never fetches.
+    void (async () => {
+      for (let batch = 0; batch < 13; batch++) {
+        const result = await reconcileLegacy() as { remaining: number };
+        if (!result.remaining) break;
+      }
+    })().catch(() => { reconciliationStarted.current = false; });
+  }, [dashboard, reconcileLegacy]);
   return <WorkspaceView displayName={displayName} dashboard={dashboard} actions={{ mutateArticle, addSource, updateSource, deleteSource, refreshSource, seedDemo, importOpml, signOut: () => signOut({ returnTo: window.location.href }) }} renderDrawer={(props) => <ArticleDrawer {...props} />} />;
 }
 

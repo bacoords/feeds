@@ -3,6 +3,7 @@ import type { schema } from './schema.js';
 import type { Article, Dashboard, NormalizedItem, WorkerResult } from '../shared/contracts.js';
 import { normalizeFeedUrl, OpmlParseError, parseOpml, OPML_MAX_FEEDS, SOURCE_LIMIT } from '../shared/opml.js';
 import type { OpmlImportInput, OpmlImportResult } from '../shared/opml.js';
+import { claimShared, finishShared, linkLegacySource, migrateDueLegacy, queuePool, reconcileOwner, setSharedState, sharedItemForUser, sharedItems, sourcePool, updatePoolForSource } from './shared-domain.js';
 
 type Definition = { schema: typeof schema };
 export type ReadContext = Pick<QueryServerContext<ReadDatabaseOf<Definition>>, 'db' | 'auth' | 'env' | 'crypto'>;
@@ -52,19 +53,29 @@ export async function dashboard(ctx: ReadContext): Promise<Dashboard> {
   const sources = await ctx.db.sources.withIndex('by_owner', q => q.eq('ownerId', userId)).take(SOURCE_LIMIT);
   const jobs = await ctx.db.jobs.withIndex('by_owner', q => q.eq('ownerId', userId)).take(SOURCE_LIMIT);
   const articles = await ctx.db.articles.withIndex('by_owner', q => q.eq('ownerId', userId)).order('desc').take(ARTICLE_LIMIT);
+  const shared = await sharedItems(ctx, userId);
+  const mapped = new Set((await ctx.db.legacyItemMaps.withIndex('by_owner', q => q.eq('ownerId', userId)).take(5_000)).map(row => row.legacyId));
+  const sharedBySource = new Map<string, Awaited<ReturnType<typeof sourcePool>>>();
+  for (const source of sources) sharedBySource.set(source.id, await sourcePool(ctx, source.id));
+  const output = [
+    ...shared.map(({ item, sourceId, sourceTitle, read, starred }) => ({ id: item.id, sourceId, sourceTitle, title: item.title, url: item.url, bodyText: item.bodyText.slice(0, 2000), author: item.author, publishedAt: item.publishedAt, read, starred })),
+    ...articles.filter(a => !mapped.has(a.id) && (sources.some(s => s.id === a.sourceId) || a.starred)).map(a => ({ id: a.id, sourceId: a.sourceId, sourceTitle: sources.find(s => s.id === a.sourceId)?.title ?? 'Saved feed', title: a.title, url: a.url, bodyText: a.bodyText.slice(0, 2000), author: a.author, publishedAt: a.publishedAt, read: a.read, starred: a.starred })),
+  ].sort((a, b) => b.publishedAt.localeCompare(a.publishedAt)).slice(0, ARTICLE_LIMIT);
   return {
     workerConfigured: ingestionConfigured(ctx),
-    sources: sources.map(s => ({ id: s.id, title: s.title, url: s.url, folder: s.folder, enabled: s.enabled, nextPollAt: s.nextPollAt, lastAttemptAt: s.lastAttemptAt, lastSuccessAt: s.lastSuccessAt, error: s.error, jobStatus: jobs.find(j => j.sourceId === s.id)?.status ?? 'paused' })),
-    articles: articles.filter(a => sources.some(s => s.id === a.sourceId)).map(a => ({ id: a.id, sourceId: a.sourceId, sourceTitle: sources.find(s => s.id === a.sourceId)!.title, title: a.title, url: a.url, bodyText: a.bodyText.slice(0, 2000), author: a.author, publishedAt: a.publishedAt, read: a.read, starred: a.starred })),
+    sources: sources.map(s => { const pool = sharedBySource.get(s.id); return { id: s.id, title: s.title, url: s.url, folder: s.folder, enabled: s.enabled, nextPollAt: pool?.nextRunAt ?? s.nextPollAt, lastAttemptAt: pool?.lastAttemptAt ?? s.lastAttemptAt, lastSuccessAt: pool?.lastSuccessAt ?? s.lastSuccessAt, error: pool?.error ?? s.error, jobStatus: pool?.status ?? jobs.find(j => j.sourceId === s.id)?.status ?? 'paused' }; }),
+    articles: output,
   };
 }
 export async function article(ctx: ReadContext, input: { id: string }): Promise<Article> {
   const userId = owner(ctx);
+  const shared = await sharedItemForUser(ctx, userId, text(input.id, 200, 'article ID'));
+  if (shared) return { id: shared.item.id, sourceId: shared.sourceId, sourceTitle: shared.sourceTitle, title: shared.item.title, url: shared.item.url, bodyText: shared.item.bodyText, author: shared.item.author, publishedAt: shared.item.publishedAt, read: shared.read, starred: shared.starred };
   const row = await ctx.db.articles.get(text(input.id, 200, 'article ID'));
   if (!row || row.ownerId !== userId) throw new DomainError('Article not found.', 404);
   const source = await ctx.db.sources.get(row.sourceId);
-  if (!source || source.ownerId !== userId) throw new DomainError('Article not found.', 404);
-  return { id: row.id, sourceId: row.sourceId, sourceTitle: source.title, title: row.title, url: row.url, bodyText: row.bodyText, author: row.author, publishedAt: row.publishedAt, read: row.read, starred: row.starred };
+  if ((!source || source.ownerId !== userId) && !row.starred) throw new DomainError('Article not found.', 404);
+  return { id: row.id, sourceId: row.sourceId, sourceTitle: source?.title ?? 'Saved feed', title: row.title, url: row.url, bodyText: row.bodyText, author: row.author, publishedAt: row.publishedAt, read: row.read, starred: row.starred };
 }
 export async function addSource(ctx: WriteContext, input: { title: string; url: string; folder?: string }, now = Date.now()) {
   const userId = owner(ctx);
@@ -80,7 +91,13 @@ export async function addSource(ctx: WriteContext, input: { title: string; url: 
 async function insertSource(ctx: WriteContext, userId: string, input: { title: string; url: string; folder: string }, enabled: boolean, now: number) {
   const source = await ctx.db.sources.insert({ ownerId: userId, ...input, enabled, nextPollAt: now, lastAttemptAt: 0, lastSuccessAt: 0, error: '', etag: '', lastModified: '', demo: false });
   await ctx.db.jobs.insert({ ownerId: userId, sourceId: source.id, status: enabled ? 'queued' : 'paused', nextRunAt: enabled ? now : NEVER, leaseUntil: 0, leaseToken: '', leaseVersion: 0, attempts: 0, completedToken: '' });
+  if (nativeIngestionConfigured(ctx)) await linkLegacySource(ctx, source, now);
   return source;
+}
+export async function reconcileLegacy(ctx: WriteContext, now = Date.now()) {
+  const result = await reconcileOwner(ctx, owner(ctx), now);
+  if (result.migrated) ctx.invalidate('dashboard', 'article');
+  return result;
 }
 /** One native write transaction. No import error is converted into a successful commit. */
 export async function importOpml(ctx: WriteContext, input: OpmlImportInput, now = Date.now()): Promise<OpmlImportResult> {
@@ -119,20 +136,24 @@ export async function updateSource(ctx: WriteContext, input: { id: string; enabl
   if (typeof input.enabled !== 'boolean') throw new DomainError('Invalid enabled state.');
   if (input.enabled && (!ingestionConfigured(ctx) || source.demo)) throw new DomainError('Live ingestion is not configured for this feed.');
   await ctx.db.sources.update(source.id, { enabled: input.enabled, nextPollAt: now });
+  if (await updatePoolForSource(ctx, { ...source, enabled: input.enabled }, input.enabled, now)) { ctx.invalidate('dashboard', 'article'); return; }
   const job = await ctx.db.jobs.withIndex('by_source', q => q.eq('sourceId', source.id)).first();
   if (job) await ctx.db.jobs.update(job.id, { status: input.enabled ? 'queued' : 'paused', nextRunAt: input.enabled ? now : NEVER, leaseToken: '', leaseUntil: 0 });
   ctx.invalidate('dashboard', 'article');
 }
 export async function deleteSource(ctx: WriteContext, input: { id: string }) {
   const source = await sourceFor(ctx, input.id);
-  for (const article of await ctx.db.articles.withIndex('by_source', q => q.eq('sourceId', source.id)).take(ARTICLE_LIMIT)) await ctx.db.articles.delete(article.id);
-  for (const job of await ctx.db.jobs.withIndex('by_source', q => q.eq('sourceId', source.id)).take(10)) await ctx.db.jobs.delete(job.id);
+  const link = await ctx.db.subscriptions.withIndex('by_source', q => q.eq('sourceId', source.id)).first();
+  if (link) await ctx.db.subscriptions.delete(link.id);
+  for (const job of await ctx.db.jobs.withIndex('by_source', q => q.eq('sourceId', source.id)).take(10)) await ctx.db.jobs.update(job.id, { status: 'unsubscribed', nextRunAt: NEVER, leaseUntil: 0, leaseToken: '' });
   await ctx.db.sources.delete(source.id);
   ctx.invalidate('dashboard', 'article');
 }
 export async function refreshSource(ctx: WriteContext, input: { id: string }, now = Date.now()) {
   const source = await sourceFor(ctx, input.id);
   if (!ingestionConfigured(ctx) || !source.enabled || source.demo) throw new DomainError('Enable this feed after configuring scheduled ingestion.');
+  const shared = await queuePool(ctx, source, now);
+  if (shared) { ctx.invalidate('dashboard', 'article'); return shared; }
   const job = await ctx.db.jobs.withIndex('by_source', q => q.eq('sourceId', source.id)).first();
   if (!job) throw new DomainError('Feed job is missing.', 409);
   if (job.status !== 'running' || job.leaseUntil <= now) await ctx.db.jobs.update(job.id, { status: 'queued', nextRunAt: now });
@@ -141,6 +162,9 @@ export async function refreshSource(ctx: WriteContext, input: { id: string }, no
 }
 export async function setArticleState(ctx: WriteContext, input: { id: string; read?: boolean; starred?: boolean }) {
   const userId = owner(ctx);
+  if (input.read !== undefined && typeof input.read !== 'boolean') throw new DomainError('Invalid read state.');
+  if (input.starred !== undefined && typeof input.starred !== 'boolean') throw new DomainError('Invalid star state.');
+  if (await setSharedState(ctx, userId, text(input.id, 200, 'article ID'), { read: input.read, starred: input.starred })) { ctx.invalidate('dashboard', 'article'); return; }
   const article = await ctx.db.articles.get(text(input.id, 200, 'article ID'));
   if (!article || article.ownerId !== userId) throw new DomainError('Article not found.', 404);
   const patch: { read?: boolean; starred?: boolean } = {};
@@ -176,6 +200,12 @@ export async function dispatch(ctx: WriteContext, now = Date.now()) {
   return { queued, disabled: false };
 }
 export async function claim(ctx: WriteContext, now = Date.now(), leaseKey: string | null = ctx.env.FEEDS_WORKER_SECRET ?? '') {
+  if (nativeIngestionConfigured(ctx)) {
+    await migrateDueLegacy(ctx, now);
+    const shared = await claimShared(ctx, now, leaseKey);
+    if (shared) { ctx.invalidate('dashboard', 'article'); return shared; }
+    return null;
+  }
   await dispatch(ctx, now);
   const due = await ctx.db.jobs.withIndex('by_due', q => q.lte('nextRunAt', now)).take(50);
   for (const job of due) {
@@ -209,6 +239,12 @@ function validateItems(items: unknown): NormalizedItem[] {
 }
 export async function finish(ctx: WriteContext, input: WorkerResult, now = Date.now()) {
   if (!input || typeof input !== 'object') throw new DomainError('Invalid result.');
+  const pool = await ctx.db.feedPools.get(text(input.jobId, 200, 'job ID'));
+  if (pool) {
+    const result = await finishShared(ctx, pool, input, now);
+    ctx.invalidate('dashboard', 'article');
+    return result;
+  }
   const job = await ctx.db.jobs.get(text(input.jobId, 200, 'job ID'));
   const token = text(input.leaseToken, 128, 'lease token');
   if (!job) throw new DomainError('Job not found.', 404);

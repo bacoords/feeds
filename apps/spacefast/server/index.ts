@@ -33,6 +33,25 @@ export default capsule({
     ownerId: string(), sourceId: string(), status: string(), nextRunAt: number(),
     leaseUntil: number(), leaseToken: string(), leaseVersion: number(), attempts: number(), completedToken: string(),
   }).index('by_source', ['sourceId']).index('by_due', ['nextRunAt']).index('by_owner', ['ownerId']),
+  feedPools: table({
+    url: string(), ownerId: string(), visibility: string(), status: string(),
+    nextRunAt: number(), leaseUntil: number(), leaseToken: string(), leaseVersion: number(),
+    attempts: number(), completedToken: string(), lastAttemptAt: number(), lastSuccessAt: number(),
+    error: string(), etag: string(), lastModified: string(),
+  }).index('by_url', ['url']).index('by_url_visibility', ['url', 'visibility']).index('by_url_owner', ['url', 'ownerId']).index('by_due', ['nextRunAt']),
+  feedItems: table({
+    feedId: string(), key: string(), title: string(), url: string(), bodyText: string(),
+    author: string(), publishedAt: string(),
+  }).index('by_feed', ['feedId']).index('by_feed_key', ['feedId', 'key']),
+  subscriptions: table({
+    ownerId: string(), sourceId: string(), feedId: string(),
+  }).index('by_owner', ['ownerId']).index('by_source', ['sourceId']).index('by_feed', ['feedId']).index('by_owner_feed', ['ownerId', 'feedId']),
+  itemStates: table({
+    ownerId: string(), itemId: string(), sourceId: string(), sourceTitle: string(), read: boolean(), starred: boolean(),
+  }).index('by_owner', ['ownerId']).index('by_item', ['itemId']).index('by_owner_item', ['ownerId', 'itemId']),
+  legacyItemMaps: table({
+    ownerId: string(), legacyId: string(), itemId: string(),
+  }).index('by_legacy', ['legacyId']).index('by_owner', ['ownerId']),
 },
   queries: { dashboard: query(domain.dashboard), article: query(domain.article) },
   mutations: {
@@ -40,6 +59,7 @@ export default capsule({
     addSource: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.addSource>[1]) => domain.addSource(ctx, input)), updateSource: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.updateSource>[1]) => domain.updateSource(ctx, input)),
     deleteSource: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.deleteSource>[1]) => domain.deleteSource(ctx, input)), refreshSource: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.refreshSource>[1]) => domain.refreshSource(ctx, input)),
     setArticleState: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.setArticleState>[1]) => domain.setArticleState(ctx, input)), seedDemo: mutation((ctx: domain.WriteContext, input: Parameters<typeof domain.seedDemo>[1]) => domain.seedDemo(ctx, input)),
+    reconcileLegacy: mutation((ctx: domain.WriteContext) => domain.reconcileLegacy(ctx)),
   },
   endpoints: {
     health: endpoint({ method: 'GET', path: '/api/health' }, () => json({ app: 'Feeds', version: '0.1.0' })),
@@ -49,7 +69,7 @@ export default capsule({
         // Platform-owned scheduler marker; ordinary and manual requests are denied.
         authenticateNativeTrigger(req.headers.get('x-spacefast-cron'));
         const result = await nativeTick(ctx);
-        raw.log.info('feeds.native-scheduled-tick', { trigger: 'spacefast-cron', enabled: result.enabled, outcome: result.outcome });
+        raw.log.info('feeds.native-scheduled-tick', { trigger: 'spacefast-cron', enabled: result.enabled, outcome: result.outcome, processed: 'processed' in result ? result.processed : 0 });
         return result;
       });
     }),
