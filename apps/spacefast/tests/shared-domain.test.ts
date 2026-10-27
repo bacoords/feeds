@@ -48,6 +48,17 @@ test('hourly tick drains five quick due feeds, isolating one failure', async () 
   h.close();
 });
 
+test('due feeds are claimed oldest first even when inserted in another order', async () => {
+  const { h, alice } = setup();
+  await addSource(alice, { title: 'Late', url: 'https://late.example.org/rss' }, 3000);
+  await addSource(alice, { title: 'Early', url: 'https://early.example.org/rss' }, 1000);
+  await addSource(alice, { title: 'Middle', url: 'https://middle.example.org/rss' }, 2000);
+  const order: string[] = [];
+  await h.transaction(() => nativeTick(alice, async url => { order.push(String(url)); return emptyResponse(); }, () => 3000));
+  assert.deepEqual(order, ['https://early.example.org/rss', 'https://middle.example.org/rss', 'https://late.example.org/rss']);
+  h.close();
+});
+
 test('tick stops admitting new feeds when the batch time budget is spent', async () => {
   const { h, alice } = setup();
   for (let index = 0; index < 5; index++) await addSource(alice, { title: `Feed ${index}`, url: `https://slow${index}.example.org/rss` }, 1000);

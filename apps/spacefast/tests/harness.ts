@@ -19,7 +19,7 @@ export function harness(path = ':memory:') {
         const range = { eq(k: string, v: unknown) { predicates.push(r => r[k] === v); return range; }, lte(k: string, v: number) { predicates.push(r => r[k] <= v); return range; } };
         build?.(range);
         let reverse = false;
-        const rows = () => { const result = db.prepare('SELECT data FROM records WHERE table_name=? ORDER BY rowid').all(name).map(r => JSON.parse(r.data as string)).filter(r => predicates.every(p => p(r))); return reverse ? result.reverse() : result; };
+        const rows = () => { const result = db.prepare('SELECT data FROM records WHERE table_name=? ORDER BY rowid').all(name).map(r => JSON.parse(r.data as string)).filter(r => predicates.every(p => p(r))); if (_index === 'by_due') result.sort((a, b) => a.nextRunAt - b.nextRunAt); return reverse ? result.reverse() : result; };
         const query = { order(order: string) { reverse = order === 'desc'; return query; }, async collect() { return rows(); }, async take(limit: number) { return rows().slice(0, limit); }, async first() { return rows()[0] ?? null; }, async count() { return rows().length; }, async paginate({ cursor, numItems }: { cursor: string | null; numItems: number }) { const start = Number(cursor ?? 0); const all = rows(); return { page: all.slice(start, start + numItems), continueCursor: start + numItems < all.length ? String(start + numItems) : null, isDone: start + numItems >= all.length }; } };
         return query;
       },

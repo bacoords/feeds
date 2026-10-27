@@ -84,7 +84,7 @@ export async function linkLegacySource(ctx: WriteContext, source: Source, now: n
 
 export async function migrateDueLegacy(ctx: WriteContext, now: number, maxSources = 2) {
   let migrated = 0;
-  const due = await ctx.db.jobs.withIndex('by_due', q => q.lte('nextRunAt', now)).take(50);
+  const due = await ctx.db.jobs.withIndex('by_due', q => q.lte('nextRunAt', now)).order('asc').take(50);
   for (const job of due) {
     if (migrated >= maxSources) break;
     const source = await ctx.db.sources.get(job.sourceId);
@@ -181,7 +181,7 @@ async function activeSubscribers(ctx: ReadContext, feedId: string) {
 }
 
 export async function claimShared(ctx: WriteContext, now: number, leaseKey: string | null, skipJobIds: Set<string> = new Set()) {
-  for (const pool of await ctx.db.feedPools.withIndex('by_due', q => q.lte('nextRunAt', now)).take(50 + skipJobIds.size)) {
+  for (const pool of await ctx.db.feedPools.withIndex('by_due', q => q.lte('nextRunAt', now)).order('asc').take(50 + skipJobIds.size)) {
     if (skipJobIds.has(pool.id)) continue;
     if (pool.visibility === 'retired' || pool.status === 'paused' || pool.status === 'capacity') continue;
     if (!await activeSubscribers(ctx, pool.id)) {
