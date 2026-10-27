@@ -1,10 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { harness } from './harness.js';
-import { addSource, dashboard, setArticleState } from '../server/domain.js';
-import { authenticateNativeTrigger, nativeFetchProbe, nativeTick } from '../server/native-ingestion.js';
+import { addSource, dashboard, setArticleState, workerConfigured, refreshSource } from '../server/domain.js';
+import { authenticateNativeTrigger, nativeTick } from '../server/native-ingestion.js';
 import { decodeNativeUtf8, fetchNativeFeed, nativeFeedUrl, NATIVE_BODY_LIMIT, readNativeBody, type NativeResponse, type NativeTransport } from '../server/native-fetch.js';
-const SECRET = 'test-only-not-a-live-secret-0000000000';
 const RSS = '<rss><channel><item><guid>one</guid><title>First</title><description><![CDATA[<p>Safe <b>text</b></p><script>no</script>]]></description></item></channel></rss>';
 function response(text = RSS, status = 200, headers: Record<string, string> = {}, chunks?: Uint8Array[]): NativeResponse {
   const parts = [...(chunks ?? [new TextEncoder().encode(text)])];
@@ -12,7 +11,7 @@ function response(text = RSS, status = 200, headers: Record<string, string> = {}
 }
 function setup() {
   const h = harness(); const ctx = h.context();
-  ctx.env = { CRON_SECRET: SECRET, FEEDS_NATIVE_INGESTION_ENABLED: 'true' };
+  ctx.env = {};
   return { h, ctx };
 }
 test('native URL policy rejects literals, private names, credentials and parser-confusion forms', () => {
@@ -51,14 +50,9 @@ test('native fetch sends no credentials, checks redirects, and drops cross-origi
   await assert.rejects(fetchNativeFeed('https://example.org/rss', {}, async () => response('', 302, { location: '/again' })), /REDIRECT_LIMIT/);
   await assert.rejects(fetchNativeFeed('https://example.org/rss', {}, async () => response('', 304)), /UNEXPECTED_NOT_MODIFIED/);
 });
-test('native scheduler authentication fails closed independently of app identities and marker headers', async () => {
-  const { h, ctx } = setup();
-  await assert.rejects(authenticateNativeTrigger(ctx, null), { status: 401 });
-  await assert.rejects(authenticateNativeTrigger(ctx, 'Bearer wrong'), { status: 401 });
-  await authenticateNativeTrigger(ctx, `Bearer ${SECRET}`);
-  ctx.env = {};
-  await assert.rejects(authenticateNativeTrigger(ctx, 'Bearer undefined'), { status: 503 });
-  h.close();
+test('native trigger requires the platform marker, with no app identity or secret', () => {
+  for (const marker of [null, '', '  ']) assert.throws(() => authenticateNativeTrigger(marker), { status: 401 });
+  authenticateNativeTrigger('1');
 });
 test('disabled native tick proves authentication without reading jobs or fetching', async () => {
   const { h, ctx } = setup(); ctx.env.FEEDS_NATIVE_INGESTION_ENABLED = 'false';
@@ -98,11 +92,13 @@ test('native errors persist retry and recovery, but unexpected failures roll the
   assert.equal((await h.transaction(() => nativeTick(ctx, async () => response(), () => 3_631_000))).outcome, 'success');
   h.close();
 });
-test('fixed capability probe returns no feed body, secret or headers and is disabled after activation', async () => {
+test('native source defaults enable new feeds without credentials and refresh only queues', async () => {
   const { h, ctx } = setup();
-  await assert.rejects(nativeFetchProbe(ctx, async () => response()), { status: 409 });
-  ctx.env.FEEDS_NATIVE_INGESTION_ENABLED = 'false';
-  const value = await nativeFetchProbe(ctx, async (url) => { assert.equal(url, 'https://wordpress.org/news/feed/'); return response(); });
-  assert.deepEqual(value, { authenticated: true, enabled: false, status: 200, boundedReadAvailable: true });
+  assert.equal(workerConfigured(ctx), false);
+  const source = await addSource(ctx, { title: 'One', url: 'https://example.org/rss' }, 1000);
+  assert.equal(source.enabled, true);
+  await refreshSource(ctx, { id: source.id }, 2000);
+  assert.equal((await dashboard(ctx)).articles.length, 0);
+  assert.equal((await dashboard(ctx)).sources[0].jobStatus, 'queued');
   h.close();
 });

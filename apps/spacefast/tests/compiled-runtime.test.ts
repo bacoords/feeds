@@ -31,7 +31,7 @@ test('compiled health endpoint works without a visitor session', async () => {
 });
 
 test('compiled worker endpoints fail closed without requiring a reader session', async () => {
-  for (const endpoint of compiled.finalizePayload.endpointSources.filter(endpoint => endpoint.path !== '/api/health')) {
+  for (const endpoint of compiled.finalizePayload.endpointSources.filter(endpoint => endpoint.path !== '/api/health' && endpoint.path !== '/api/cron/ingest')) {
     const result = await execute(endpoint.source);
     assert.equal(result.status, 503, endpoint.path);
     assert.match(JSON.parse(result.body).error, /disabled|not configured/i);
@@ -41,36 +41,38 @@ test('compiled worker endpoints fail closed without requiring a reader session',
 test('compiled worker routes reject missing credentials even when the worker is configured', async () => {
   for (const endpoint of compiled.finalizePayload.endpointSources.filter(endpoint => endpoint.path !== '/api/health' && endpoint.path !== '/api/cron/ingest')) {
     const result = await execute(endpoint.source, {
-      __statticEnv: { FEEDS_WORKER_ENABLED: 'true', FEEDS_WORKER_SECRET: 'test-only-not-a-live-secret-0000000000' },
+      __statticEnv: { FEEDS_NATIVE_INGESTION_ENABLED: 'false', FEEDS_WORKER_ENABLED: 'true', FEEDS_WORKER_SECRET: 'test-only-not-a-live-secret-0000000000' },
     });
     assert.equal(result.status, 401, endpoint.path);
   }
 });
 
-test('compiled native scheduler rejects forged markers and never fetches before authorization', async () => {
-  for (const endpoint of compiled.finalizePayload.endpointSources.filter(endpoint => endpoint.path === '/api/cron/ingest')) {
+test('compiled native scheduler denies ordinary requests and ignores bearer/cookie identity before data access', async () => {
+  const endpoint = compiled.finalizePayload.endpointSources.find(endpoint => endpoint.path === '/api/cron/ingest')!;
+  for (const headers of [{}, { authorization: 'Bearer anything', cookie: 'session=anything' }, { 'x-spacefast-cron': '' }]) {
     const result = await execute(endpoint.source, {
-      __statticEnv: { CRON_SECRET: 'test-only-not-a-live-secret-0000000000' },
-      __statticZeroRequest: { headers: { 'x-spacefast-cron': '1' } },
+      __statticZeroRequest: { headers },
       fetch: () => { throw new Error('Must not fetch'); },
     });
     assert.equal(result.status, 401);
   }
+  assert.equal(compiled.finalizePayload.endpointSources.filter(endpoint => endpoint.path === '/api/cron/ingest').length, 1, 'No manual probe/fetch bypass');
 });
 
-test('compiled native trigger validates bearer then reports disabled without reading or fetching', async () => {
+test('compiled native trigger accepts platform marker and honors emergency disable without fetching', async () => {
   const endpoint = compiled.finalizePayload.endpointSources.find(endpoint => endpoint.path === '/api/cron/ingest' && endpoint.method === 'GET')!;
-  const secret = 'test-only-not-a-live-secret-0000000000';
   const result = await execute(endpoint.source, {
-    __statticEnv: { CRON_SECRET: secret },
-    __statticZeroRequest: { headers: { authorization: `Bearer ${secret}` } },
-    __statticCrypto: (operation: string, payload: { a: string; b: string }) => {
-      assert.equal(operation, 'timing_safe_equal'); return payload.a === payload.b;
-    },
+    __statticEnv: { FEEDS_NATIVE_INGESTION_ENABLED: 'false' },
+    __statticZeroRequest: { headers: { 'x-spacefast-cron': '1' } },
     fetch: () => { throw new Error('Must not fetch'); },
   });
   assert.equal(result.status, 200);
   assert.deepEqual(JSON.parse(result.body), { authenticated: true, enabled: false, outcome: 'disabled' });
+});
+
+test('published config declares exactly one native scheduled GET every 15 minutes', async () => {
+  const config = JSON.parse(await readFile('sf.jsonc', 'utf8'));
+  assert.deepEqual(config.crons, [{ path: '/api/cron/ingest', schedule: '*/15 * * * *' }]);
 });
 
 test('compiled reader handlers reject signed-out and guest users before touching data', async () => {

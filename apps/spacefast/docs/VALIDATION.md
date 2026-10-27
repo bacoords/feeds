@@ -1,3 +1,9 @@
+## Native cron activation, October 27, 2026
+
+The owner explicitly requested a native cron every 15 minutes, superseding the earlier deferral below. Source now declares `*/15 * * * *` with native runtime enabled and the platform cron marker guard. No credential or auth/provider setting changed. Local coverage includes marker absence/bearer-only rejection, disabled-mode behavior, one-feed limits, due-time idempotency, owner isolation and unchanged parser/SSRF bounds. Actual deployment and scheduled invocation must be recorded separately; local tests do not prove them. The historical secret-injection prerequisite below was our extra safeguard, not a documented platform requirement, and is superseded by the documented native marker path.
+
+Read-only pre-deploy inspection found one disabled demo source and no real subscriptions. Do not claim an idle tick fetched articles. Existing/imported paused subscriptions require their owner's Enable toggle; new manual additions queue automatically. One feed per tick caps aggregate throughput at four/hour; larger batching is deferred until runtime budgets are verified.
+
 # Prototype verification record
 
 Baseline: `bacoords/feeds` main `a4b9cd386630f8f24cbe9c62bcb6fa1b909f53a8`. Original plugin files, root dependency manifests, PHP and WordPress UI are preserved. Only `apps/spacefast/` and a scoped CI workflow are added.

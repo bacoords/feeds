@@ -29,7 +29,7 @@ export function harness(path = ':memory:') {
     return {
       db: api,
       auth: { userId: user, isAuthenticated: !user.startsWith('guest:') },
-      env: enabled ? { FEEDS_WORKER_ENABLED: 'true', FEEDS_WORKER_SECRET: 'test-only-not-a-live-secret-0000000000' } : {},
+      env: enabled ? { FEEDS_NATIVE_INGESTION_ENABLED: 'false', FEEDS_WORKER_ENABLED: 'true', FEEDS_WORKER_SECRET: 'test-only-not-a-live-secret-0000000000' } : { FEEDS_NATIVE_INGESTION_ENABLED: 'false' },
       crypto: {
         async sha256(data: string) { return createHash('sha256').update(data).digest('hex'); },
         async hmacSha256({key,data}: {key: {value: string};data:string}) { return createHmac('sha256', key.value).update(data).digest('hex'); },

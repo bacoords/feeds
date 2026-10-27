@@ -21,11 +21,10 @@ function owner(ctx: ReadContext) {
 export function workerConfigured(ctx: Pick<ReadContext, 'env'>) {
   return !nativeIngestionConfigured(ctx) && ctx.env.FEEDS_WORKER_ENABLED === 'true' && (ctx.env.FEEDS_WORKER_SECRET?.length ?? 0) >= 32;
 }
-export function nativeSecretConfigured(ctx: Pick<ReadContext, 'env'>) {
-  return /^[\x21-\x7e]{32,256}$/.test(ctx.env.CRON_SECRET ?? '');
-}
+/** Source-enabled alongside sf.jsonc's native cron. An explicit false is an
+ * operational kill switch; native scheduling needs no additional credential. */
 export function nativeIngestionConfigured(ctx: Pick<ReadContext, 'env'>) {
-  return ctx.env.FEEDS_NATIVE_INGESTION_ENABLED === 'true' && nativeSecretConfigured(ctx);
+  return ctx.env.FEEDS_NATIVE_INGESTION_ENABLED !== 'false';
 }
 export function ingestionConfigured(ctx: Pick<ReadContext, 'env'>) {
   return nativeIngestionConfigured(ctx) || workerConfigured(ctx);
@@ -176,15 +175,18 @@ export async function dispatch(ctx: WriteContext, now = Date.now()) {
   ctx.invalidate('dashboard', 'article');
   return { queued, disabled: false };
 }
-export async function claim(ctx: WriteContext, now = Date.now(), leaseKey = ctx.env.FEEDS_WORKER_SECRET ?? '') {
+export async function claim(ctx: WriteContext, now = Date.now(), leaseKey: string | null = ctx.env.FEEDS_WORKER_SECRET ?? '') {
   await dispatch(ctx, now);
   const due = await ctx.db.jobs.withIndex('by_due', q => q.lte('nextRunAt', now)).take(50);
   for (const job of due) {
     if (job.status !== 'queued') continue;
     const source = await ctx.db.sources.get(job.sourceId);
     if (!source || !source.enabled || source.demo) continue;
-    // HMAC prevents predicting a lease capability. Its generation also fences stale results.
-    const leaseToken = await ctx.crypto.hmacSha256({ key: { value: leaseKey }, data: `${job.id}:${job.leaseVersion + 1}:${now}` });
+    // External workers need an unguessable capability. The native transaction
+    // never exposes its token, and worker result endpoints are disabled in that
+    // mode: a hash is only an internal replay/version fence, not authentication.
+    const leaseData = `${job.id}:${job.leaseVersion + 1}:${now}`;
+    const leaseToken = leaseKey === null ? await ctx.crypto.sha256(leaseData) : await ctx.crypto.hmacSha256({ key: { value: leaseKey }, data: leaseData });
     await ctx.db.jobs.update(job.id, { status: 'running', leaseToken, leaseVersion: job.leaseVersion + 1, leaseUntil: now + LEASE, nextRunAt: now + LEASE, attempts: job.attempts + 1 });
     await ctx.db.sources.update(source.id, { lastAttemptAt: now });
     ctx.invalidate('dashboard', 'article');

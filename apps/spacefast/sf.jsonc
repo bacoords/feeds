@@ -14,5 +14,11 @@
   "meta": {
     "title": "Feeds",
     "description": "A personal feed reader. Private prototype."
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/ingest",
+      "schedule": "*/15 * * * *"
+    }
+  ]
 }

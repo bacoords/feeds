@@ -4,9 +4,11 @@ Questions and developer-experience notes collected while building the Feeds prot
 
 Last updated: **2026-10-25 (UTC)**. Implementation reference: `77888e3f0039ec562fa306790fa001bfaa441b33`, using `@spacefast/zero`, `@spacefast/zero-compile` and `@spacefast/common` 0.8.0. Historical observations below are not promises about future releases.
 
-Recurring ingestion remains disabled. The project owner has deferred scheduler/auth investigation and plans to ask the Spacefast team. Recording these questions does not authorize new credentials, settings changes, scheduled jobs, or sending feedback to the team.
+Update, 2026-10-27: The owner explicitly reopened native scheduling and requested a cron every 15 minutes. The source now uses the documented platform marker path with no new secret; deployment and first scheduled execution are verified separately. Historical observations below are retained, not current blockers. No auth/provider settings changed and no feedback was sent.
 
 ## SF-001: Authenticating a native scheduled request
+
+**2026-10-27 correction:** The [cron guide](https://spacefast.com/docs/crons/) explicitly supports handlers gated on the platform-owned `x-spacefast-cron` header; its manual shared-secret example is an alternative for a manual run, not a required credential for native scheduling. Requiring speculative bearer injection blocked the straightforward documented path unnecessarily. We now declare the cron in `sf.jsonc`, use the native marker, and keep ordinary/manual requests denied. Header stripping/value documentation would still be useful, but is not being treated as an invented platform requirement. Actual scheduled runtime logs, not a manual call, are the verification target.
 
 - **Logged:** 2026-10-25.
 - **Type:** Documentation/contract clarification; not an established vulnerability.
