@@ -41,37 +41,41 @@ async function matchItem(ctx: ReadContext, feedId: string, legacy: { key: string
   return current.find(item => item.key === legacy.key || (legacy.url && item.url === legacy.url));
 }
 
-/** Idempotent, additive migration. Old source/article/job rows remain as a rollback copy.
- * The legacy-to-shared map accepts old article IDs while clients reload. */
+/** Map an old ID only when its URL identifies an item actually fetched into
+ * this pool. Its old body stays owner-private, even after public promotion. */
+async function mapObservedLegacy(ctx: WriteContext, source: Source, items: Item[]) {
+  const byUrl = new Map(items.filter(item => item.url).map(item => [item.url, item]));
+  if (!byUrl.size) return;
+  for (const legacy of await ctx.db.articles.withIndex('by_source', q => q.eq('sourceId', source.id)).take(LIMIT)) {
+    const observed = byUrl.get(legacy.url);
+    // A URL can be reused for changed or personalized content. Keep that old
+    // snapshot owner-private unless the visible text is exactly the same.
+    if (!observed || legacy.title !== observed.title || legacy.bodyText !== observed.bodyText || await ctx.db.legacyItemMaps.withIndex('by_legacy', q => q.eq('legacyId', legacy.id)).first()) continue;
+    const existingState = await stateFor(ctx, source.ownerId, observed.id);
+    if (existingState) await ctx.db.itemStates.update(existingState.id, { read: existingState.read || legacy.read, starred: existingState.starred || legacy.starred });
+    else await saveState(ctx, source.ownerId, observed.id, source, legacy.read, legacy.starred);
+    await ctx.db.legacyItemMaps.insert({ ownerId: source.ownerId, legacyId: legacy.id, itemId: observed.id });
+  }
+}
+
+/** Idempotent, additive source/job migration. Historical article bodies remain
+ * in the legacy owner-scoped table until independently observed in a feed. */
 export async function linkLegacySource(ctx: WriteContext, source: Source, now: number) {
   const linked = await ctx.db.subscriptions.withIndex('by_source', q => q.eq('sourceId', source.id)).first();
   if (linked) return linked;
   const existing = await poolForUrl(ctx, source.url, source.ownerId);
   const pool = existing ?? await ctx.db.feedPools.insert({
-    url: source.url, ownerId: source.ownerId, visibility: 'private',
+    url: source.url, ownerId: source.ownerId, visibility: 'private', publicEligible: true,
     status: source.enabled && !source.demo ? 'queued' : 'paused',
     nextRunAt: source.enabled && !source.demo ? Math.max(now, source.nextPollAt) : NEVER,
     leaseUntil: 0, leaseToken: '', leaseVersion: 0, attempts: 0, completedToken: '',
     lastAttemptAt: source.lastAttemptAt, lastSuccessAt: source.lastSuccessAt,
     error: source.error, etag: source.etag, lastModified: source.lastModified,
   });
-  const subscription = await ctx.db.subscriptions.insert({ ownerId: source.ownerId, sourceId: source.id, feedId: pool.id });
+  const legacy = await ctx.db.articles.withIndex('by_source', q => q.eq('sourceId', source.id)).take(LIMIT);
+  const subscription = await ctx.db.subscriptions.insert({ ownerId: source.ownerId, sourceId: source.id, feedId: pool.id, hasLegacyHistory: legacy.length > 0 });
   if (source.enabled && !source.demo && pool.status === 'paused') await ctx.db.feedPools.update(pool.id, { status: 'queued', nextRunAt: now });
-  const items = await ctx.db.feedItems.withIndex('by_feed', q => q.eq('feedId', pool.id)).take(LIMIT);
-  const oldMaps = new Set((await ctx.db.legacyItemMaps.withIndex('by_owner', q => q.eq('ownerId', source.ownerId)).take(5_000)).map(map => map.legacyId));
-  const ownerStates = new Map((await ctx.db.itemStates.withIndex('by_owner', q => q.eq('ownerId', source.ownerId)).take(5_000)).map(state => [state.itemId, state]));
-  for (const legacy of await ctx.db.articles.withIndex('by_source', q => q.eq('sourceId', source.id)).take(LIMIT)) {
-    if (oldMaps.has(legacy.id)) continue;
-    const match = await matchItem(ctx, pool.id, legacy, items);
-    if (!match && items.length >= LIMIT) continue; // Keep the unmapped owner row visible.
-    const item = match ?? await ctx.db.feedItems.insert({ feedId: pool.id, key: legacy.key, title: legacy.title, url: legacy.url, bodyText: legacy.bodyText, author: legacy.author, publishedAt: legacy.publishedAt });
-    if (!match) items.push(item);
-    const existingState = ownerStates.get(item.id);
-    if (existingState) ownerStates.set(item.id, (await ctx.db.itemStates.update(existingState.id, { read: existingState.read || legacy.read, starred: existingState.starred || legacy.starred }))!);
-    else if (legacy.read || legacy.starred) ownerStates.set(item.id, await ctx.db.itemStates.insert({ ownerId: source.ownerId, itemId: item.id, sourceId: source.id, sourceTitle: source.title, read: legacy.read, starred: legacy.starred }));
-    await ctx.db.legacyItemMaps.insert({ ownerId: source.ownerId, legacyId: legacy.id, itemId: item.id });
-    oldMaps.add(legacy.id);
-  }
+  if (subscription.hasLegacyHistory && pool.visibility === 'public') await mapObservedLegacy(ctx, source, await ctx.db.feedItems.withIndex('by_feed', q => q.eq('feedId', pool.id)).take(LIMIT));
   for (const job of await ctx.db.jobs.withIndex('by_source', q => q.eq('sourceId', source.id)).take(10)) {
     await ctx.db.jobs.update(job.id, { status: 'migrated', nextRunAt: NEVER, leaseUntil: 0, leaseToken: '' });
   }
@@ -152,7 +156,12 @@ export async function setSharedState(ctx: WriteContext, ownerId: string, itemId:
   if (!found) return false;
   const existing = await stateFor(ctx, ownerId, found.item.id);
   const source = found.source;
-  if (existing) await ctx.db.itemStates.update(existing.id, { ...patch });
+  if (existing) {
+    const defined: { read?: boolean; starred?: boolean } = {};
+    if (patch.read !== undefined) defined.read = patch.read;
+    if (patch.starred !== undefined) defined.starred = patch.starred;
+    await ctx.db.itemStates.update(existing.id, defined);
+  }
   else if (source) await saveState(ctx, ownerId, found.item.id, source, patch.read ?? false, patch.starred ?? false);
   return true;
 }
@@ -171,8 +180,9 @@ async function activeSubscribers(ctx: ReadContext, feedId: string) {
   return true; // A very large feed must not lose its job because of a scan cap.
 }
 
-export async function claimShared(ctx: WriteContext, now: number, leaseKey: string | null) {
-  for (const pool of await ctx.db.feedPools.withIndex('by_due', q => q.lte('nextRunAt', now)).take(50)) {
+export async function claimShared(ctx: WriteContext, now: number, leaseKey: string | null, skipJobIds: Set<string> = new Set()) {
+  for (const pool of await ctx.db.feedPools.withIndex('by_due', q => q.lte('nextRunAt', now)).take(50 + skipJobIds.size)) {
+    if (skipJobIds.has(pool.id)) continue;
     if (pool.visibility === 'retired' || pool.status === 'paused' || pool.status === 'capacity') continue;
     if (!await activeSubscribers(ctx, pool.id)) {
       await ctx.db.feedPools.update(pool.id, { status: 'paused', nextRunAt: NEVER });
@@ -204,15 +214,24 @@ function checkedItems(items: unknown): NormalizedItem[] {
   });
 }
 
-async function mergePrivateIntoPublic(ctx: WriteContext, privatePool: Pool, publicPool: Pool) {
+function observedInResponse(item: { key: string; url: string; title: string; bodyText: string }, responseItems: NormalizedItem[]) {
+  return responseItems.some(observed =>
+    (observed.key === item.key || (item.url && observed.url === item.url)) &&
+    item.title === observed.title && item.bodyText === observed.bodyText);
+}
+
+async function mergePrivateIntoPublic(ctx: WriteContext, privatePool: Pool, publicPool: Pool, responseItems: NormalizedItem[]) {
   const target = await ctx.db.feedItems.withIndex('by_feed', q => q.eq('feedId', publicPool.id)).take(LIMIT);
   const oldItems = await ctx.db.feedItems.withIndex('by_feed', q => q.eq('feedId', privatePool.id)).take(LIMIT);
+  if (oldItems.some(item => !observedInResponse(item, responseItems) && !target.some(publicItem =>
+    (publicItem.key === item.key || (item.url && publicItem.url === item.url)) && publicItem.title === item.title && publicItem.bodyText === item.bodyText))) return false;
   const legacyMaps = await ctx.db.legacyItemMaps.withIndex('by_owner', q => q.eq('ownerId', privatePool.ownerId)).take(5_000);
   const unmatched = oldItems.filter(oldItem => !target.some(item => item.key === oldItem.key || (oldItem.url && item.url === oldItem.url)));
   if (target.length + unmatched.length > LIMIT) return false; // Never hide unmapped private history.
   for (const oldItem of oldItems) {
     const found = await matchItem(ctx, publicPool.id, oldItem, target);
     const item = found ?? await ctx.db.feedItems.insert({ feedId: publicPool.id, key: oldItem.key, title: oldItem.title, url: oldItem.url, bodyText: oldItem.bodyText, author: oldItem.author, publishedAt: oldItem.publishedAt });
+    if (found && observedInResponse(oldItem, responseItems)) await ctx.db.feedItems.update(found.id, { key: oldItem.key, title: oldItem.title, url: oldItem.url, bodyText: oldItem.bodyText, author: oldItem.author, publishedAt: oldItem.publishedAt });
     if (!found) target.push(item);
     for (const state of await ctx.db.itemStates.withIndex('by_item', q => q.eq('itemId', oldItem.id)).take(100)) {
       const current = await stateFor(ctx, state.ownerId, item.id);
@@ -223,17 +242,29 @@ async function mergePrivateIntoPublic(ctx: WriteContext, privatePool: Pool, publ
     for (const map of legacyMaps) {
       if (map.itemId === oldItem.id) await ctx.db.legacyItemMaps.update(map.id, { itemId: item.id });
     }
+    // A drawer may still hold a private item ID issued before convergence.
+    if (privatePool.ownerId && !await ctx.db.legacyItemMaps.withIndex('by_legacy', q => q.eq('legacyId', oldItem.id)).first()) await ctx.db.legacyItemMaps.insert({ ownerId: privatePool.ownerId, legacyId: oldItem.id, itemId: item.id });
   }
   for (const link of await ctx.db.subscriptions.withIndex('by_feed', q => q.eq('feedId', privatePool.id)).take(100)) await ctx.db.subscriptions.update(link.id, { feedId: publicPool.id });
   await ctx.db.feedPools.update(privatePool.id, { visibility: 'retired', status: 'paused', nextRunAt: NEVER });
   return true;
 }
 
-export async function finishShared(ctx: WriteContext, pool: Pool, input: WorkerResult, now: number) {
+async function mapPoolLegacy(ctx: WriteContext, feedId: string) {
+  const items = await ctx.db.feedItems.withIndex('by_feed', q => q.eq('feedId', feedId)).take(LIMIT);
+  for (const link of await ctx.db.subscriptions.withIndex('by_feed', q => q.eq('feedId', feedId)).take(1_000)) {
+    if (!link.hasLegacyHistory) continue;
+    const source = await ctx.db.sources.get(link.sourceId);
+    if (source?.ownerId === link.ownerId) await mapObservedLegacy(ctx, source, items);
+  }
+}
+
+export async function finishShared(ctx: WriteContext, pool: Pool, input: WorkerResult, now: number, directResponse = false) {
   if (pool.completedToken === input.leaseToken) return { duplicate: true };
   if (pool.status !== 'running' || pool.leaseToken !== input.leaseToken || pool.leaseUntil <= now) throw new Error('Worker lease is stale.');
   if (!await activeSubscribers(ctx, pool.id)) throw new Error('Feed is unavailable.');
-  if (input.status === 'failure') {
+  // A public pool never exposes content obtained through an unverified redirect.
+  if (input.status === 'failure' || (input.status === 'success' && pool.visibility === 'public' && !directResponse)) {
     const next = now + Math.min(HOUR, 30_000 * 2 ** Math.min(pool.attempts - 1, 7));
     await ctx.db.feedPools.update(pool.id, { status: 'retry', nextRunAt: next, leaseUntil: 0, leaseToken: '', completedToken: input.leaseToken, error: 'Feed could not be fetched. A retry is scheduled.' });
     return { duplicate: false };
@@ -248,16 +279,18 @@ export async function finishShared(ctx: WriteContext, pool: Pool, input: WorkerR
   }
   for (const item of items) {
     const match = await matchItem(ctx, pool.id, item, current);
-    if (match) await ctx.db.feedItems.update(match.id, item);
+    if (match) current[current.findIndex(existing => existing.id === match.id)] = (await ctx.db.feedItems.update(match.id, item))!;
     else current.push(await ctx.db.feedItems.insert({ ...item, feedId: pool.id }));
   }
   const next = now + HOUR;
-  await ctx.db.feedPools.update(pool.id, { status: 'idle', nextRunAt: next, leaseUntil: 0, leaseToken: '', attempts: 0, completedToken: input.leaseToken, lastSuccessAt: now, error: '', etag: (input.etag ?? pool.etag).slice(0, 1024), lastModified: (input.lastModified ?? pool.lastModified).slice(0, 200) });
-  if (input.status === 'success' && pool.visibility === 'private' && shareCandidate(pool.url)) {
+  await ctx.db.feedPools.update(pool.id, { status: 'idle', nextRunAt: next, leaseUntil: 0, leaseToken: '', attempts: 0, completedToken: input.leaseToken, lastSuccessAt: now, error: '', etag: (input.etag ?? pool.etag).slice(0, 1024), lastModified: (input.lastModified ?? pool.lastModified).slice(0, 200), publicEligible: pool.publicEligible && (input.status !== 'success' || directResponse) });
+  let visiblePoolId = pool.id;
+  if (input.status === 'success' && directResponse && pool.publicEligible && pool.visibility === 'private' && shareCandidate(pool.url) && current.every(item => observedInResponse(item, items))) {
     const publicPool = await ctx.db.feedPools.withIndex('by_url_visibility', q => q.eq('url', pool.url).eq('visibility', 'public')).first();
-    if (publicPool) await mergePrivateIntoPublic(ctx, pool, publicPool);
+    if (publicPool) { if (await mergePrivateIntoPublic(ctx, pool, publicPool, items)) visiblePoolId = publicPool.id; }
     else await ctx.db.feedPools.update(pool.id, { visibility: 'public', ownerId: '' });
   }
+  if (input.status === 'success') await mapPoolLegacy(ctx, visiblePoolId);
   return { duplicate: false };
 }
 

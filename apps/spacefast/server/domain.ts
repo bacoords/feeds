@@ -164,12 +164,12 @@ export async function setArticleState(ctx: WriteContext, input: { id: string; re
   const userId = owner(ctx);
   if (input.read !== undefined && typeof input.read !== 'boolean') throw new DomainError('Invalid read state.');
   if (input.starred !== undefined && typeof input.starred !== 'boolean') throw new DomainError('Invalid star state.');
-  if (await setSharedState(ctx, userId, text(input.id, 200, 'article ID'), { read: input.read, starred: input.starred })) { ctx.invalidate('dashboard', 'article'); return; }
+  const patch: { read?: boolean; starred?: boolean } = {};
+  if (input.read !== undefined) patch.read = input.read;
+  if (input.starred !== undefined) patch.starred = input.starred;
+  if (await setSharedState(ctx, userId, text(input.id, 200, 'article ID'), patch)) { ctx.invalidate('dashboard', 'article'); return; }
   const article = await ctx.db.articles.get(text(input.id, 200, 'article ID'));
   if (!article || article.ownerId !== userId) throw new DomainError('Article not found.', 404);
-  const patch: { read?: boolean; starred?: boolean } = {};
-  if (input.read !== undefined) { if (typeof input.read !== 'boolean') throw new DomainError('Invalid read state.'); patch.read = input.read; }
-  if (input.starred !== undefined) { if (typeof input.starred !== 'boolean') throw new DomainError('Invalid star state.'); patch.starred = input.starred; }
   await ctx.db.articles.update(article.id, patch);
   ctx.invalidate('dashboard', 'article');
 }
@@ -199,10 +199,10 @@ export async function dispatch(ctx: WriteContext, now = Date.now()) {
   ctx.invalidate('dashboard', 'article');
   return { queued, disabled: false };
 }
-export async function claim(ctx: WriteContext, now = Date.now(), leaseKey: string | null = ctx.env.FEEDS_WORKER_SECRET ?? '') {
+export async function claim(ctx: WriteContext, now = Date.now(), leaseKey: string | null = ctx.env.FEEDS_WORKER_SECRET ?? '', options: { migrateLegacy?: boolean; skipJobIds?: Set<string> } = {}) {
   if (nativeIngestionConfigured(ctx)) {
-    await migrateDueLegacy(ctx, now);
-    const shared = await claimShared(ctx, now, leaseKey);
+    if (options.migrateLegacy !== false) await migrateDueLegacy(ctx, now);
+    const shared = await claimShared(ctx, now, leaseKey, options.skipJobIds);
     if (shared) { ctx.invalidate('dashboard', 'article'); return shared; }
     return null;
   }
@@ -237,11 +237,11 @@ function validateItems(items: unknown): NormalizedItem[] {
     return { key, title: text(raw.title, 500, 'article title'), url: articleUrl(raw.url), bodyText: text(raw.bodyText, 50_000, 'article body', true), author: text(raw.author, 200, 'author', true), publishedAt };
   });
 }
-export async function finish(ctx: WriteContext, input: WorkerResult, now = Date.now()) {
+export async function finish(ctx: WriteContext, input: WorkerResult, now = Date.now(), directResponse = false) {
   if (!input || typeof input !== 'object') throw new DomainError('Invalid result.');
   const pool = await ctx.db.feedPools.get(text(input.jobId, 200, 'job ID'));
   if (pool) {
-    const result = await finishShared(ctx, pool, input, now);
+    const result = await finishShared(ctx, pool, input, now, directResponse);
     ctx.invalidate('dashboard', 'article');
     return result;
   }

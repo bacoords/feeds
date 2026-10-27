@@ -34,7 +34,7 @@ export default capsule({
     leaseUntil: number(), leaseToken: string(), leaseVersion: number(), attempts: number(), completedToken: string(),
   }).index('by_source', ['sourceId']).index('by_due', ['nextRunAt']).index('by_owner', ['ownerId']),
   feedPools: table({
-    url: string(), ownerId: string(), visibility: string(), status: string(),
+    url: string(), ownerId: string(), visibility: string(), publicEligible: boolean(), status: string(),
     nextRunAt: number(), leaseUntil: number(), leaseToken: string(), leaseVersion: number(),
     attempts: number(), completedToken: string(), lastAttemptAt: number(), lastSuccessAt: number(),
     error: string(), etag: string(), lastModified: string(),
@@ -44,7 +44,7 @@ export default capsule({
     author: string(), publishedAt: string(),
   }).index('by_feed', ['feedId']).index('by_feed_key', ['feedId', 'key']),
   subscriptions: table({
-    ownerId: string(), sourceId: string(), feedId: string(),
+    ownerId: string(), sourceId: string(), feedId: string(), hasLegacyHistory: boolean(),
   }).index('by_owner', ['ownerId']).index('by_source', ['sourceId']).index('by_feed', ['feedId']).index('by_owner_feed', ['ownerId', 'feedId']),
   itemStates: table({
     ownerId: string(), itemId: string(), sourceId: string(), sourceTitle: string(), read: boolean(), starred: boolean(),
@@ -69,7 +69,7 @@ export default capsule({
         // Platform-owned scheduler marker; ordinary and manual requests are denied.
         authenticateNativeTrigger(req.headers.get('x-spacefast-cron'));
         const result = await nativeTick(ctx);
-        raw.log.info('feeds.native-scheduled-tick', { trigger: 'spacefast-cron', enabled: result.enabled, outcome: result.outcome, processed: 'processed' in result ? result.processed : 0 });
+        raw.log.info('feeds.native-scheduled-tick', { trigger: 'spacefast-cron', enabled: result.enabled, outcome: result.outcome, processed: 'processed' in result ? result.processed : 0, migratedLegacy: 'migratedLegacy' in result ? result.migratedLegacy : 0, remainingDueRows: 'remainingDueRows' in result ? result.remainingDueRows : 0, remainingLegacyDueRows: 'remainingLegacyDueRows' in result ? result.remainingLegacyDueRows : 0, stoppedForBudget: 'stoppedForBudget' in result ? result.stoppedForBudget : false, reachedItemCap: 'reachedItemCap' in result ? result.reachedItemCap : false });
         return result;
       });
     }),
