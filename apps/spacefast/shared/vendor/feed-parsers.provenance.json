@@ -1,0 +1,94 @@
+{
+  "generatedBy": "scripts/build-native-parser.ts",
+  "command": "npm ci && npm run build:native-parser",
+  "toolchain": {
+    "esbuild": "0.28.2",
+    "target": "es2022",
+    "platform": "browser",
+    "format": "esm"
+  },
+  "entry": "export { XMLValidator } from 'fast-xml-parser'; export { Parser } from 'htmlparser2';",
+  "note": "Only XMLValidator, htmlparser2 Parser and its entities decoder survive tree-shaking. No upstream patches, aliases, defines or global shims are used. fast-xml-parser XMLParser is deliberately not imported because strnum uses unsupported window fallback.",
+  "outputSha256": "6ea97d102da4c5689c75b161c74256a43fd2a034f50e3d6ca149b75e3b5b2945",
+  "packages": [
+    {
+      "name": "fast-xml-parser",
+      "version": "5.11.2",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git+https://github.com/NaturalIntelligence/fast-xml-parser.git"
+      },
+      "resolved": "https://registry.npmjs.org/fast-xml-parser/-/fast-xml-parser-5.11.2.tgz",
+      "integrity": "sha512-R9iDuNrQYeQut46cn2r2wHKn4HYzVDvDm5J1wW+koZewykv0yuO2HChTYeZtrULyHIDM9cj9TUXloCsueCQUog=="
+    },
+    {
+      "name": "htmlparser2",
+      "version": "12.0.0",
+      "license": "MIT",
+      "repository": {
+        "type": "git",
+        "url": "git://github.com/fb55/htmlparser2.git"
+      },
+      "resolved": "https://registry.npmjs.org/htmlparser2/-/htmlparser2-12.0.0.tgz",
+      "integrity": "sha512-Tz7u1i95/g2x2jz81+x0FBVhBhY5aRTvD3tXXdFaljuNdzDLJ8UGNRrTcj2cgQvAg3iW/h77Fz15nLW0L0CrZw=="
+    },
+    {
+      "name": "entities",
+      "version": "8.1.0",
+      "license": "BSD-2-Clause",
+      "repository": {
+        "type": "git",
+        "url": "https://github.com/fb55/entities.git"
+      },
+      "resolved": "https://registry.npmjs.org/entities/-/entities-8.1.0.tgz",
+      "integrity": "sha512-kxL7msIffSuh9aaFAMD7rxAIuTRMAHMeBtgHW2yUdWw732ZNh4MehkF2gdjvtdmikkaIP9bFDDJOPlsvm7avrA=="
+    }
+  ],
+  "sources": [
+    {
+      "path": "node_modules/fast-xml-parser/src/fxp.js",
+      "sha256": "587bee5d27b6dbc99d24f472ea93028659610c3496be7d667e72483483c3f3ba"
+    },
+    {
+      "path": "node_modules/fast-xml-parser/src/util.js",
+      "sha256": "870ccd88a5d51e35ef8cbc59e7f2a35d31defc87aded9c06023ae57838851901"
+    },
+    {
+      "path": "node_modules/fast-xml-parser/src/validator.js",
+      "sha256": "e818788b069429443a97756a4c458999d6751461c4ef41c7bfe1cc58bd70dde4"
+    },
+    {
+      "path": "node_modules/htmlparser2/dist/Parser.js",
+      "sha256": "b7bfa388ba057b2c41c899fb6375144b3ef86ce0967c047d7fe6bd37c1c4a45b"
+    },
+    {
+      "path": "node_modules/htmlparser2/dist/Tokenizer.js",
+      "sha256": "a72bbfa5eafa92fdbfb5c3d7e73f7e327ea5a05843f0b2e2821504d433821749"
+    },
+    {
+      "path": "node_modules/htmlparser2/node_modules/entities/dist/decode-codepoint.js",
+      "sha256": "dddf76e72987697316e647f046b2755dafe16308fe83159969b3155e0ebf3beb"
+    },
+    {
+      "path": "node_modules/htmlparser2/node_modules/entities/dist/decode.js",
+      "sha256": "6ce0048039ae0f9dab6e21dd1309661bcfe7e3beabfab1f15cdd61adb91e20b7"
+    },
+    {
+      "path": "node_modules/htmlparser2/node_modules/entities/dist/generated/decode-data-html.js",
+      "sha256": "1ff1226550125bb8976dd032b2dcfc37ba311863dbf9ae69b4b16922f5a38ead"
+    },
+    {
+      "path": "node_modules/htmlparser2/node_modules/entities/dist/generated/decode-data-xml.js",
+      "sha256": "e549a5fd573d540a4652c81fab6655f3418c34c1613a30ed245ca017d9a5b730"
+    },
+    {
+      "path": "node_modules/htmlparser2/node_modules/entities/dist/internal/bin-trie-flags.js",
+      "sha256": "8bb285f9ab41b9fd2525c83902c99b36e7c36da7cb7fa3be574d68f328183de5"
+    },
+    {
+      "path": "node_modules/htmlparser2/node_modules/entities/dist/internal/decode-shared.js",
+      "sha256": "cd26388e8ec3fdc2c4b212883e9ae460a4fe6dd37d80d0dacffd6b0087171b6b"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://spacefast.com/schemas/sf.json",
+  "name": "Feeds web prototype",
+  "runtime": {
+    "kind": "zero",
+    "server": "server/index.ts",
+    "client": "client/zero-shell.tsx"
+  },
+  "build": {
+    "outputDirectory": "dist",
+    "buildCommand": "npm run build",
+    "installCommand": "npm ci --ignore-scripts"
+  },
+  "meta": {
+    "title": "Feeds",
+    "description": "A personal feed reader. Private prototype."
+  },
+  "crons": [
+    {
+      "path": "/api/cron/ingest",
+      "schedule": "hourly"
+    }
+  ]
+}

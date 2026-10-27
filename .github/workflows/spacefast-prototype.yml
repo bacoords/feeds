@@ -1,0 +1,24 @@
+name: Spacefast prototype
+on:
+  pull_request:
+    paths: ['apps/spacefast/**', '.github/workflows/spacefast-prototype.yml']
+  push:
+    branches: ['codex/feeds-spacefast-prototype']
+    paths: ['apps/spacefast/**', '.github/workflows/spacefast-prototype.yml']
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/spacefast
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/spacefast/package-lock.json
+      - run: npm ci --ignore-scripts
+      - run: npm run check
