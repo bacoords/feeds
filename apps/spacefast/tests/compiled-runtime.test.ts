@@ -70,9 +70,9 @@ test('compiled native trigger accepts platform marker and honors emergency disab
   assert.deepEqual(JSON.parse(result.body), { authenticated: true, enabled: false, outcome: 'disabled' });
 });
 
-test('published config declares exactly one native scheduled GET every 15 minutes', async () => {
+test('published config declares exactly one native scheduled GET on the supported hourly schedule', async () => {
   const config = JSON.parse(await readFile('sf.jsonc', 'utf8'));
-  assert.deepEqual(config.crons, [{ path: '/api/cron/ingest', schedule: '*/15 * * * *' }]);
+  assert.deepEqual(config.crons, [{ path: '/api/cron/ingest', schedule: 'hourly' }]);
 });
 
 test('compiled reader handlers reject signed-out and guest users before touching data', async () => {

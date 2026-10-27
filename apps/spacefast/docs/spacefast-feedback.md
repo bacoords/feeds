@@ -22,6 +22,14 @@ Update, 2026-10-27: The owner explicitly reopened native scheduling and requeste
   3. What is the supported way to test genuine scheduled authentication without enabling feed ingestion? How should developers interpret differences from a manual cron run?
 - **Status:** Deferred at the owner's request; awaiting a future team discussion. No further scheduler/auth investigation or activation is planned now.
 
+### SF-001 update: declared schedule versus active schedule (2026-10-27)
+
+- At 11:51 UTC, `listSpaceCrons` began returning `scheduled: false` for the live v10 `*/15 * * * *` entry. No actual scheduled access/runtime event had been observed since publication at 03:41 UTC. Empty failure arrays did not prove a working schedule.
+- The live [cron response schema](https://api.spacefast.com/schemas/list-space-crons.200.json) and [OpenAPI document](https://api.spacefast.com/openapi.json) state that crontab expressions were retired and old declarations are not scheduled; publish a basic schedule to repair them.
+- In contrast, the [cron guide](https://spacefast.com/docs/crons/) (page says October 6 update), [sf.json schema](https://spacefast.com/schemas/sf.json), and connector docs search revision `10ae413fa58c7bbd2ae05e777090fcb5e499ce7f` still advertise the exact `*/15 * * * *` example. The earlier API responses lacked a `scheduled` field. These are dated observations, not a claim about when the retirement occurred.
+- We changed only the schedule to the documented basic `hourly` fallback, plus tests/documentation. This is one due feed/hour for the present bounded handler, not every feed hourly. Deployment and first actual execution require separate verification. No secret, provider/account setting or external scheduler was added.
+- Feedback: keep the guide/config schema/connector docs aligned with the live contract, and surface inactive legacy declarations clearly at publication and in cron listings. This feedback has not been sent.
+
 ## SF-002: App-specific accounts versus the generic Spacefast sign-in screen
 
 - **Logged:** 2026-10-25.
